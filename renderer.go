@@ -2,6 +2,7 @@ package goldpdf
 
 import (
 	"fmt"
+	"image/color"
 	"io"
 	"math"
 	"strings"
@@ -15,8 +16,7 @@ import (
 type Renderer struct {
 	source []byte
 	pdf    *fpdf.Fpdf
-	states []State
-	depth  int
+	states []*State
 	styles Styles
 }
 
@@ -32,10 +32,32 @@ func (r *Renderer) Render(w io.Writer, source []byte, n ast.Node) error {
 
 func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 	if entering {
-		fmt.Println(strings.Repeat("  ", r.depth), n.Kind())
-		r.depth++
+		depth := len(r.states)
+		fmt.Println(strings.Repeat("  ", depth), n.Kind(), n.Type())
+		newState := &State{
+			Node:  n,
+			X:     r.pdf.GetX(),
+			Y:     r.pdf.GetY(),
+			Style: Style{},
+		}
+		if n.Type() == ast.TypeDocument {
+			newState.Style = r.styles.Paragraph
+		} else {
+			newState.Style = r.currentState().Style
+			newState.Link = r.currentState().Link
+		}
+		r.states = append(r.states, newState)
 	} else {
-		r.depth--
+		defer func() {
+			x, y := r.pdf.GetXY()
+			r.currentState()
+
+			r.pdf.SetLineWidth(0.1)
+			r.pdf.SetFont("", "", 8)
+
+			r.pdf.SetXY(x, y)
+			r.states = r.states[:len(r.states)-1]
+		}()
 	}
 
 	switch n := n.(type) {
@@ -53,131 +75,33 @@ func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		return r.renderEmphasis(n, entering)
 	case *xast.Strikethrough:
 		return r.renderStrikethrough(n, entering)
+	case *ast.List:
+		return r.renderList(n, entering)
+	case *ast.ListItem:
+		return r.renderListItem(n, entering)
+	case *ast.TextBlock:
+		return r.renderTextBlock(n, entering)
+	case *ast.Link:
+		return r.renderLink(n, entering)
 
 	default:
 		if entering {
-			r.pdf.Ln(10)
+			r.pdf.Ln(10 / 2)
 			r.pdf.SetFont("", "", 10)
 			r.pdf.SetTextColor(255, 0, 0)
 			r.pdf.Write(10, fmt.Sprintf("%v not implemented", n.Kind().String()))
 			r.pdf.SetTextColor(0, 0, 0)
-			r.pdf.Ln(10)
+			r.pdf.Ln(10 / 2)
 		}
 		return ast.WalkContinue, nil
 	}
 }
 
 func (r *Renderer) renderDocument(n *ast.Document, entering bool) (ast.WalkStatus, error) {
-	if entering {
-		r.pushState(State{Style: r.styles.Paragraph})
-	} else {
-		r.popState()
-	}
 	return ast.WalkContinue, nil
 }
 
-func (r *Renderer) renderHeading(n *ast.Heading, entering bool) (ast.WalkStatus, error) {
-	if entering {
-		s := State{}
-		switch n.Level {
-		case 1:
-			s.Style = r.styles.H1
-		case 2:
-			s.Style = r.styles.H2
-		case 3:
-			s.Style = r.styles.H3
-		case 4:
-			s.Style = r.styles.H4
-		case 5:
-			s.Style = r.styles.H5
-		case 6:
-			s.Style = r.styles.H6
-		}
-		r.pushState(s)
-		r.pdf.Ln(0)
-	} else {
-		s := r.popState()
-		r.pdf.Ln(s.Style.FontSize / 2)
-	}
-	return ast.WalkContinue, nil
-}
-func (r *Renderer) renderParagraph(n *ast.Paragraph, entering bool) (ast.WalkStatus, error) {
-	if entering {
-		s := State{Style: r.styles.Paragraph}
-		r.pushState(s)
-		r.pdf.Ln(0)
-	} else {
-		s := r.popState()
-		r.pdf.Ln(s.Style.FontSize)
-	}
-	return ast.WalkContinue, nil
-}
-func (r *Renderer) renderText(n *ast.Text, entering bool) (ast.WalkStatus, error) {
-	if entering {
-		s := r.currentState().Style
-		fontStyle := ""
-		if s.Bold {
-			fontStyle += "B"
-		}
-		if s.Italic {
-			fontStyle += "I"
-		}
-		if s.Strike {
-			fontStyle += "S"
-		}
-		r.pdf.SetFont(s.FontFamily, fontStyle, s.FontSize)
-		r.pdf.SetFontSize(s.FontSize)
-		r.pdf.Write(s.FontSize, string(n.Text(r.source)))
-	}
-	return ast.WalkContinue, nil
-}
-func (r *Renderer) renderEmphasis(n *ast.Emphasis, entering bool) (ast.WalkStatus, error) {
-	if entering {
-		s := r.currentState()
-		switch n.Level {
-		case 2:
-			s.Style.Bold = true
-		default:
-			s.Style.Italic = true
-		}
-		r.pushState(State{Style: s.Style})
-	} else {
-		r.popState()
-	}
-	return ast.WalkContinue, nil
-}
-func (r *Renderer) renderStrikethrough(n *xast.Strikethrough, entering bool) (ast.WalkStatus, error) {
-	if entering {
-		s := r.currentState()
-		s.Style.Strike = true
-		r.pushState(State{Style: s.Style})
-	} else {
-		r.popState()
-	}
-	return ast.WalkContinue, nil
-}
-func (r *Renderer) renderThematicBreak(n *ast.ThematicBreak, entering bool) (ast.WalkStatus, error) {
-	if entering {
-		fs := r.currentState().Style.FontSize
-		y := r.pdf.GetY()
-		lm, _, rm, _ := r.pdf.GetMargins()
-		width, _ := r.pdf.GetPageSize()
-		r.pdf.Ln(fs)
-		r.pdf.Line(lm, y, width-rm, y)
-		r.pdf.Ln(fs)
-	}
-	return ast.WalkContinue, nil
-}
-
-func (r *Renderer) pushState(state State) {
-	r.states = append(r.states, state)
-}
-func (r *Renderer) popState() State {
-	var s State
-	s, r.states = r.states[len(r.states)-1], r.states[:len(r.states)-1]
-	return s
-}
-func (r *Renderer) currentState() State {
+func (r *Renderer) currentState() *State {
 	return r.states[len(r.states)-1]
 }
 
@@ -186,21 +110,22 @@ func (r *Renderer) AddOptions(options ...renderer.Option) {
 }
 
 func New() renderer.Renderer {
-	pdf := fpdf.New(fpdf.OrientationPortrait, "mm", "A4", ".")
+	pdf := fpdf.New(fpdf.OrientationPortrait, "pt", "A4", ".")
 	pdf.AddPage()
 	pdf.SetFont("Arial", "", 16)
 
 	return &Renderer{
 		pdf:    pdf,
-		states: []State{},
+		states: []*State{},
 		styles: Styles{
-			Paragraph: Style{FontSize: 12 * math.Pow(1.15, 0)},
-			H1:        Style{FontSize: 12 * math.Pow(1.15, 6)},
-			H2:        Style{FontSize: 12 * math.Pow(1.15, 5)},
-			H3:        Style{FontSize: 12 * math.Pow(1.15, 4)},
-			H4:        Style{FontSize: 12 * math.Pow(1.15, 3)},
-			H5:        Style{FontSize: 12 * math.Pow(1.15, 2)},
-			H6:        Style{FontSize: 12 * math.Pow(1.15, 1)},
+			Paragraph: Style{FontSize: 12 * math.Pow(1.15, 0), Color: color.Black},
+			H1:        Style{FontSize: 12 * math.Pow(1.15, 6), Color: color.Black},
+			H2:        Style{FontSize: 12 * math.Pow(1.15, 5), Color: color.Black},
+			H3:        Style{FontSize: 12 * math.Pow(1.15, 4), Color: color.Black},
+			H4:        Style{FontSize: 12 * math.Pow(1.15, 3), Color: color.Black},
+			H5:        Style{FontSize: 12 * math.Pow(1.15, 2), Color: color.Black},
+			H6:        Style{FontSize: 12 * math.Pow(1.15, 1), Color: color.Black},
+			LinkColor: color.RGBA{B: 0xFF, A: 0xFF},
 		},
 	}
 }
