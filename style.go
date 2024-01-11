@@ -1,7 +1,11 @@
 package goldpdf
 
 type Style struct {
-	FontSize float64
+	FontSize   float64
+	FontFamily string
+	Bold       bool
+	Italic     bool
+	Strike     bool
 }
 
 type Styles struct {

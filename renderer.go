@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-pdf/fpdf"
 	"github.com/yuin/goldmark/ast"
+	xast "github.com/yuin/goldmark/extension/ast"
 	"github.com/yuin/goldmark/renderer"
 )
 
@@ -48,10 +49,15 @@ func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		return r.renderText(n, entering)
 	case *ast.ThematicBreak:
 		return r.renderThematicBreak(n, entering)
+	case *ast.Emphasis:
+		return r.renderEmphasis(n, entering)
+	case *xast.Strikethrough:
+		return r.renderStrikethrough(n, entering)
 
 	default:
 		if entering {
 			r.pdf.Ln(10)
+			r.pdf.SetFont("", "", 10)
 			r.pdf.SetTextColor(255, 0, 0)
 			r.pdf.Write(10, fmt.Sprintf("%v not implemented", n.Kind().String()))
 			r.pdf.SetTextColor(0, 0, 0)
@@ -108,9 +114,45 @@ func (r *Renderer) renderParagraph(n *ast.Paragraph, entering bool) (ast.WalkSta
 }
 func (r *Renderer) renderText(n *ast.Text, entering bool) (ast.WalkStatus, error) {
 	if entering {
-		fs := r.currentState().Style.FontSize
-		r.pdf.SetFontSize(fs)
-		r.pdf.Write(fs, string(n.Text(r.source)))
+		s := r.currentState().Style
+		fontStyle := ""
+		if s.Bold {
+			fontStyle += "B"
+		}
+		if s.Italic {
+			fontStyle += "I"
+		}
+		if s.Strike {
+			fontStyle += "S"
+		}
+		r.pdf.SetFont(s.FontFamily, fontStyle, s.FontSize)
+		r.pdf.SetFontSize(s.FontSize)
+		r.pdf.Write(s.FontSize, string(n.Text(r.source)))
+	}
+	return ast.WalkContinue, nil
+}
+func (r *Renderer) renderEmphasis(n *ast.Emphasis, entering bool) (ast.WalkStatus, error) {
+	if entering {
+		s := r.currentState()
+		switch n.Level {
+		case 2:
+			s.Style.Bold = true
+		default:
+			s.Style.Italic = true
+		}
+		r.pushState(State{Style: s.Style})
+	} else {
+		r.popState()
+	}
+	return ast.WalkContinue, nil
+}
+func (r *Renderer) renderStrikethrough(n *xast.Strikethrough, entering bool) (ast.WalkStatus, error) {
+	if entering {
+		s := r.currentState()
+		s.Style.Strike = true
+		r.pushState(State{Style: s.Style})
+	} else {
+		r.popState()
 	}
 	return ast.WalkContinue, nil
 }

@@ -23,6 +23,7 @@ func TestConvert(t *testing.T) {
 
 	markdown := goldmark.New(
 		goldmark.WithExtensions(
+			extension.Strikethrough,
 			extension.Table,
 		),
 		goldmark.WithRenderer(New()),
