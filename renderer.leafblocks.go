@@ -1,6 +1,8 @@
 package goldpdf
 
-import "github.com/yuin/goldmark/ast"
+import (
+	"github.com/yuin/goldmark/ast"
+)
 
 func (r *Renderer) renderThematicBreak(n *ast.ThematicBreak, entering bool) (ast.WalkStatus, error) {
 	if entering {
@@ -33,6 +35,28 @@ func (r *Renderer) renderHeading(n *ast.Heading, entering bool) (ast.WalkStatus,
 			s.Style = r.styles.H6
 		}
 		r.pdf.Ln(0)
+	} else {
+		s := r.currentState()
+		r.pdf.Ln(s.Style.FontSize)
+	}
+	return ast.WalkContinue, nil
+}
+
+func (r *Renderer) renderFencedCodeBlock(n *ast.FencedCodeBlock, entering bool) (ast.WalkStatus, error) {
+	if entering {
+		s := r.currentState()
+		s.Style = r.styles.CodeBlock
+		s.Style.Apply(r.pdf)
+
+		code := ""
+		lines := n.Lines()
+		for i := 0; i < lines.Len(); i++ {
+			line := lines.At(i)
+			code += string(line.Value(r.source))
+		}
+
+		r.pdf.Ln(0)
+		r.pdf.Write(s.Style.FontSize, string(code))
 	} else {
 		s := r.currentState()
 		r.pdf.Ln(s.Style.FontSize)

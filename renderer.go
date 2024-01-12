@@ -56,16 +56,22 @@ func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		return r.renderDocument(n, entering)
 	case *ast.Heading:
 		return r.renderHeading(n, entering)
+	case *ast.FencedCodeBlock:
+		return r.renderFencedCodeBlock(n, entering)
 	case *ast.Paragraph:
 		return r.renderParagraph(n, entering)
 	case *ast.Text:
 		return r.renderText(n, entering)
 	case *ast.ThematicBreak:
 		return r.renderThematicBreak(n, entering)
+	case *ast.CodeSpan:
+		return r.renderCodeSpan(n, entering)
 	case *ast.Emphasis:
 		return r.renderEmphasis(n, entering)
 	case *xast.Strikethrough:
 		return r.renderStrikethrough(n, entering)
+	case *ast.Blockquote:
+		return r.renderBlockquote(n, entering)
 	case *ast.List:
 		return r.renderList(n, entering)
 	case *ast.ListItem:
@@ -121,6 +127,8 @@ func New() renderer.Renderer {
 			H5:        Style{FontSize: 12 * math.Pow(1.15, 2), Color: color.Black},
 			H6:        Style{FontSize: 12 * math.Pow(1.15, 1), Color: color.Black},
 			LinkColor: color.RGBA{B: 0xFF, A: 0xFF},
+			CodeSpan:  Style{FontSize: 12 * math.Pow(1.15, 0), Color: color.RGBA{R: 0x99, G: 0x99, B: 0, A: 255}},
+			CodeBlock: Style{FontSize: 12 * math.Pow(1.15, 0), Color: color.RGBA{R: 0x99, G: 0x99, B: 0, A: 255}},
 		},
 	}
 }

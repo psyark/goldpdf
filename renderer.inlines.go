@@ -21,6 +21,14 @@ func (r *Renderer) renderText(n *ast.Text, entering bool) (ast.WalkStatus, error
 	return ast.WalkContinue, nil
 }
 
+func (r *Renderer) renderCodeSpan(n *ast.CodeSpan, entering bool) (ast.WalkStatus, error) {
+	if entering {
+		s := r.currentState()
+		s.Style = r.styles.CodeSpan
+	}
+	return ast.WalkContinue, nil
+}
+
 func (r *Renderer) renderEmphasis(n *ast.Emphasis, entering bool) (ast.WalkStatus, error) {
 	if entering {
 		s := r.currentState()
