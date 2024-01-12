@@ -66,7 +66,7 @@ func (s *DefaultStyler) Style(current Style, n ast.Node) Style {
 		default:
 			current.Italic = true
 		}
-	case *ast.CodeBlock, *ast.CodeSpan:
+	case *ast.FencedCodeBlock, *ast.CodeSpan:
 		current.Color = color.RGBA{R: 0x99, G: 0x99, B: 0, A: 255}
 	case *xast.Strikethrough:
 		current.Strike = true
