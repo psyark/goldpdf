@@ -10,13 +10,7 @@ import (
 func (r *Renderer) renderText(n *ast.Text, entering bool) (ast.WalkStatus, error) {
 	if entering {
 		s := r.currentState()
-		s.Style.Apply(r.pdf)
-
-		if s.Link != "" {
-			r.pdf.WriteLinkString(s.Style.FontSize, string(n.Text(r.source)), s.Link)
-		} else {
-			r.pdf.Write(s.Style.FontSize, string(n.Text(r.source)))
-		}
+		r.drawText(string(n.Text(r.source)), s.Link, s.Style)
 	}
 	return ast.WalkContinue, nil
 }
@@ -33,9 +27,7 @@ func (r *Renderer) renderAutoLink(n *ast.AutoLink, entering bool) (ast.WalkStatu
 	if entering {
 		s := r.currentState()
 		s.Link = string(n.URL(r.source))
-
-		s.Style.Apply(r.pdf)
-		r.pdf.WriteLinkString(s.Style.FontSize, s.Link, s.Link)
+		r.drawText(s.Link, s.Link, s.Style)
 	}
 	return ast.WalkContinue, nil
 }

@@ -51,8 +51,6 @@ func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 	}
 
 	switch n := n.(type) {
-	case *ast.Document:
-		return r.renderDocument(n, entering)
 	case *ast.Heading:
 		return r.renderHeading(n, entering)
 	case *ast.FencedCodeBlock:
@@ -78,24 +76,44 @@ func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 	case *ast.Image:
 		return r.renderImage(n, entering)
 
-	case *ast.CodeSpan, *ast.Emphasis, *xast.Strikethrough:
+	case *xast.Table:
+		return r.renderTable(n, entering)
+	case *xast.TableHeader:
+		return r.renderTableHeader(n, entering)
+	case *xast.TableRow:
+		return r.renderTableRow(n, entering)
+	case *xast.TableCell:
+		return r.renderTableCell(n, entering)
+
+	case *ast.Document, *ast.CodeSpan, *ast.Emphasis, *xast.Strikethrough:
 		return ast.WalkContinue, nil // do nothing
 
 	default:
 		if entering {
-			r.pdf.Ln(10)
-			r.pdf.SetFont("", "", 10)
-			r.pdf.SetTextColor(255, 0, 0)
-			r.pdf.Write(10, fmt.Sprintf("%v not implemented", n.Kind().String()))
-			r.pdf.SetTextColor(0, 0, 0)
+			debugStyle := Style{
+				FontSize: 9,
+				Color:    color.RGBA{R: 0xFF, A: 0xFF},
+			}
+
+			r.pdf.Ln(0)
+			r.drawText(
+				fmt.Sprintf("%v not implemented", n.Kind().String()),
+				"",
+				debugStyle,
+			)
 			r.pdf.Ln(10)
 		}
 		return ast.WalkContinue, nil
 	}
 }
 
-func (r *Renderer) renderDocument(n *ast.Document, entering bool) (ast.WalkStatus, error) {
-	return ast.WalkContinue, nil
+// drawText はインラインの背景やボーダーを含むスタイル、折返し、ページ跨ぎを考慮して
+// テキストを描画します。
+// 内部でfpdf.CellFormatへの複数回の呼び出しを行います
+// 全てのテキストの描画はこの関数を通して行ってください
+func (r *Renderer) drawText(text string, link string, style Style) {
+	style.Apply(r.pdf)
+	r.pdf.WriteLinkString(style.FontSize, text, link)
 }
 
 func (r *Renderer) currentState() *State {
