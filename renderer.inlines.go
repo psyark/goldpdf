@@ -22,10 +22,6 @@ func (r *Renderer) renderText(n *ast.Text, entering bool) (ast.WalkStatus, error
 }
 
 func (r *Renderer) renderCodeSpan(n *ast.CodeSpan, entering bool) (ast.WalkStatus, error) {
-	if entering {
-		s := r.currentState()
-		s.Style = r.styles.CodeSpan
-	}
 	return ast.WalkContinue, nil
 }
 
@@ -46,7 +42,6 @@ func (r *Renderer) renderLink(n *ast.Link, entering bool) (ast.WalkStatus, error
 	if entering {
 		s := r.currentState()
 		s.Link = string(n.Destination)
-		s.Style.Color = r.styles.LinkColor
 	}
 	return ast.WalkContinue, nil
 }
@@ -55,7 +50,7 @@ func (r *Renderer) renderAutoLink(n *ast.AutoLink, entering bool) (ast.WalkStatu
 	if entering {
 		s := r.currentState()
 		s.Link = string(n.URL(r.source))
-		s.Style.Color = r.styles.LinkColor
+
 		s.Style.Apply(r.pdf)
 		r.pdf.WriteLinkString(s.Style.FontSize, s.Link, s.Link)
 	}

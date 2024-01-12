@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image/color"
 	"io"
-	"math"
 
 	"github.com/go-pdf/fpdf"
 	"github.com/yuin/goldmark/ast"
@@ -16,7 +15,7 @@ type Renderer struct {
 	source      []byte
 	pdf         *fpdf.Fpdf
 	states      []*State
-	styles      Styles
+	styler      Styler
 	imageLoader imageLoader
 }
 
@@ -39,9 +38,9 @@ func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 			Style: Style{},
 		}
 		if n.Type() == ast.TypeDocument {
-			newState.Style = r.styles.Paragraph
+			newState.Style = r.styler.Style(newState.Style, n)
 		} else {
-			newState.Style = r.currentState().Style
+			newState.Style = r.styler.Style(r.currentState().Style, n)
 			newState.Link = r.currentState().Link
 		}
 		r.states = append(r.states, newState)
@@ -118,17 +117,6 @@ func New() renderer.Renderer {
 	return &Renderer{
 		pdf:    pdf,
 		states: []*State{},
-		styles: Styles{
-			Paragraph: Style{FontSize: 12 * math.Pow(1.15, 0), Color: color.Black},
-			H1:        Style{FontSize: 12 * math.Pow(1.15, 6), Color: color.Black},
-			H2:        Style{FontSize: 12 * math.Pow(1.15, 5), Color: color.Black},
-			H3:        Style{FontSize: 12 * math.Pow(1.15, 4), Color: color.Black},
-			H4:        Style{FontSize: 12 * math.Pow(1.15, 3), Color: color.Black},
-			H5:        Style{FontSize: 12 * math.Pow(1.15, 2), Color: color.Black},
-			H6:        Style{FontSize: 12 * math.Pow(1.15, 1), Color: color.Black},
-			LinkColor: color.RGBA{B: 0xFF, A: 0xFF},
-			CodeSpan:  Style{FontSize: 12 * math.Pow(1.15, 0), Color: color.RGBA{R: 0x99, G: 0x99, B: 0, A: 255}},
-			CodeBlock: Style{FontSize: 12 * math.Pow(1.15, 0), Color: color.RGBA{R: 0x99, G: 0x99, B: 0, A: 255}},
-		},
+		styler: &DefaultStyler{FontFamily: "", FontSize: 12, Color: color.Black},
 	}
 }
