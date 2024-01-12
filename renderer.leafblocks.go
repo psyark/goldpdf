@@ -29,9 +29,6 @@ func (r *Renderer) renderHeading(n *ast.Heading, entering bool) (ast.WalkStatus,
 
 func (r *Renderer) renderFencedCodeBlock(n *ast.FencedCodeBlock, entering bool) (ast.WalkStatus, error) {
 	if entering {
-		s := r.currentState()
-		s.Style.Apply(r.pdf)
-
 		code := ""
 		lines := n.Lines()
 		for i := 0; i < lines.Len(); i++ {
@@ -40,7 +37,7 @@ func (r *Renderer) renderFencedCodeBlock(n *ast.FencedCodeBlock, entering bool) 
 		}
 
 		r.pdf.Ln(0)
-		r.drawText(code, s)
+		r.drawText(code)
 	} else {
 		s := r.currentState()
 		r.pdf.Ln(s.Style.FontSize)

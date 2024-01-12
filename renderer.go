@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"io"
+	"strings"
 
 	"github.com/go-pdf/fpdf"
 	"github.com/yuin/goldmark/ast"
@@ -111,14 +112,34 @@ func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 // テキストを描画します。
 // 内部でfpdf.CellFormatへの複数回の呼び出しを行います
 // 全てのテキストの描画はこの関数を通して行ってください
-func (r *Renderer) drawText(text string, state *State) {
+func (r *Renderer) drawText(text string) {
+	state := r.currentState()
 	state.Style.Apply(r.pdf)
 
-	// r.pdf.SplitText()
+	w := state.XMax - state.XMin
+	lines := r.pdf.SplitText(text, w)
+	if len(lines) != 1 {
+		fmt.Println(w)
+		fmt.Println(strings.Join(lines, "\n"))
+		fmt.Println()
+	}
 
-	// r.pdf.SetX(state.XMin)
+	// y := r.pdf.GetY()
+	// page := r.pdf.PageCount()
+	for i, line := range lines {
+		sw := r.pdf.GetStringWidth(line)
+		// r.pdf.SetDrawColor()
+		ln := 2
+		if i == len(lines)-1 {
+			ln = 0
+		}
+		r.pdf.SetCellMargin(0)
+		r.pdf.CellFormat(sw, state.Style.FontSize, line, "1", ln, "", false, 0, state.Link)
+	}
+	// r.pdf.SetY(y)
+	// r.pdf.SetPage(page)
 
-	r.pdf.WriteLinkString(state.Style.FontSize, text, state.Link)
+	// r.pdf.WriteLinkString(state.Style.FontSize, text, state.Link)
 }
 
 func (r *Renderer) currentState() *State {

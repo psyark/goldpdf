@@ -9,8 +9,7 @@ import (
 
 func (r *Renderer) renderText(n *ast.Text, entering bool) (ast.WalkStatus, error) {
 	if entering {
-		s := r.currentState()
-		r.drawText(string(n.Text(r.source)), s)
+		r.drawText(string(n.Text(r.source)))
 	}
 	return ast.WalkSkipChildren, nil
 }
@@ -27,7 +26,7 @@ func (r *Renderer) renderAutoLink(n *ast.AutoLink, entering bool) (ast.WalkStatu
 	if entering {
 		s := r.currentState()
 		s.Link = string(n.URL(r.source))
-		r.drawText(s.Link, s)
+		r.drawText(s.Link)
 	}
 	return ast.WalkSkipChildren, nil
 }

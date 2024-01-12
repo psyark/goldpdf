@@ -28,6 +28,12 @@ func (r *Renderer) renderTableRow(n *xast.TableRow, entering bool) (ast.WalkStat
 
 func (r *Renderer) renderTableCell(n *xast.TableCell, entering bool) (ast.WalkStatus, error) {
 	if entering {
+		r.pdf.Circle(
+			r.pdf.GetX(),
+			r.pdf.GetY(),
+			3,
+			"F",
+		)
 		index := 0
 		for c := n.Parent().FirstChild(); c != nil; c = c.NextSibling() {
 			if c == n {
