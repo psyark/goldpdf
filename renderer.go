@@ -5,7 +5,6 @@ import (
 	"image/color"
 	"io"
 	"math"
-	"strings"
 
 	"github.com/go-pdf/fpdf"
 	"github.com/yuin/goldmark/ast"
@@ -14,10 +13,11 @@ import (
 )
 
 type Renderer struct {
-	source []byte
-	pdf    *fpdf.Fpdf
-	states []*State
-	styles Styles
+	source      []byte
+	pdf         *fpdf.Fpdf
+	states      []*State
+	styles      Styles
+	imageLoader imageLoader
 }
 
 func (r *Renderer) Render(w io.Writer, source []byte, n ast.Node) error {
@@ -32,12 +32,10 @@ func (r *Renderer) Render(w io.Writer, source []byte, n ast.Node) error {
 
 func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 	if entering {
-		depth := len(r.states)
-		fmt.Println(strings.Repeat("  ", depth), n.Kind(), n.Type())
+		// depth := len(r.states)
+		// fmt.Println(strings.Repeat("  ", depth), n.Kind(), n.Type())
 		newState := &State{
 			Node:  n,
-			X:     r.pdf.GetX(),
-			Y:     r.pdf.GetY(),
 			Style: Style{},
 		}
 		if n.Type() == ast.TypeDocument {
@@ -49,13 +47,6 @@ func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		r.states = append(r.states, newState)
 	} else {
 		defer func() {
-			x, y := r.pdf.GetXY()
-			r.currentState()
-
-			r.pdf.SetLineWidth(0.1)
-			r.pdf.SetFont("", "", 8)
-
-			r.pdf.SetXY(x, y)
 			r.states = r.states[:len(r.states)-1]
 		}()
 	}
@@ -83,15 +74,19 @@ func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		return r.renderTextBlock(n, entering)
 	case *ast.Link:
 		return r.renderLink(n, entering)
+	case *ast.AutoLink:
+		return r.renderAutoLink(n, entering)
+	case *ast.Image:
+		return r.renderImage(n, entering)
 
 	default:
 		if entering {
-			r.pdf.Ln(10 / 2)
+			r.pdf.Ln(10)
 			r.pdf.SetFont("", "", 10)
 			r.pdf.SetTextColor(255, 0, 0)
 			r.pdf.Write(10, fmt.Sprintf("%v not implemented", n.Kind().String()))
 			r.pdf.SetTextColor(0, 0, 0)
-			r.pdf.Ln(10 / 2)
+			r.pdf.Ln(10)
 		}
 		return ast.WalkContinue, nil
 	}
