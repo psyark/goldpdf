@@ -40,7 +40,7 @@ func (r *Renderer) renderFencedCodeBlock(n *ast.FencedCodeBlock, entering bool) 
 		}
 
 		r.pdf.Ln(0)
-		r.drawText(code, "", s.Style)
+		r.drawText(code, s)
 	} else {
 		s := r.currentState()
 		r.pdf.Ln(s.Style.FontSize)

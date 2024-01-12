@@ -31,22 +31,36 @@ func (r *Renderer) Render(w io.Writer, source []byte, n ast.Node) error {
 
 func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 	if entering {
-		// depth := len(r.states)
-		// fmt.Println(strings.Repeat("  ", depth), n.Kind(), n.Type())
-		newState := &State{
-			Node:  n,
-			Style: Style{},
-		}
+		var newState State
 		if n.Type() == ast.TypeDocument {
-			newState.Style = r.styler.Style(newState.Style, n)
+			ml, _, mr, _ := r.pdf.GetMargins()
+			pw, _ := r.pdf.GetPageSize()
+			newState.XMin = ml
+			newState.XMax = pw - mr
 		} else {
-			newState.Style = r.styler.Style(r.currentState().Style, n)
-			newState.Link = r.currentState().Link
+			newState = *r.currentState()
 		}
-		r.states = append(r.states, newState)
+
+		newState.Node = n
+		newState.Style = r.styler.Style(newState.Style, n)
+		r.states = append(r.states, &newState)
+
+		if n.Type() == ast.TypeBlock {
+			state := r.currentState()
+			pw, _ := r.pdf.GetPageSize()
+			_, tm, _, _ := r.pdf.GetMargins()
+			r.pdf.SetMargins(state.XMin, tm, pw-state.XMax)
+		}
 	} else {
 		defer func() {
 			r.states = r.states[:len(r.states)-1]
+
+			if n.Type() == ast.TypeBlock {
+				state := r.currentState()
+				pw, _ := r.pdf.GetPageSize()
+				_, tm, _, _ := r.pdf.GetMargins()
+				r.pdf.SetMargins(state.XMin, tm, pw-state.XMax)
+			}
 		}()
 	}
 
@@ -90,18 +104,7 @@ func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 
 	default:
 		if entering {
-			debugStyle := Style{
-				FontSize: 9,
-				Color:    color.RGBA{R: 0xFF, A: 0xFF},
-			}
-
-			r.pdf.Ln(0)
-			r.drawText(
-				fmt.Sprintf("%v not implemented", n.Kind().String()),
-				"",
-				debugStyle,
-			)
-			r.pdf.Ln(10)
+			fmt.Printf("%v not implemented\n", n.Kind().String())
 		}
 		return ast.WalkContinue, nil
 	}
@@ -111,9 +114,14 @@ func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 // テキストを描画します。
 // 内部でfpdf.CellFormatへの複数回の呼び出しを行います
 // 全てのテキストの描画はこの関数を通して行ってください
-func (r *Renderer) drawText(text string, link string, style Style) {
-	style.Apply(r.pdf)
-	r.pdf.WriteLinkString(style.FontSize, text, link)
+func (r *Renderer) drawText(text string, state *State) {
+	state.Style.Apply(r.pdf)
+
+	// r.pdf.SplitText()
+
+	// r.pdf.SetX(state.XMin)
+
+	r.pdf.WriteLinkString(state.Style.FontSize, text, state.Link)
 }
 
 func (r *Renderer) currentState() *State {
