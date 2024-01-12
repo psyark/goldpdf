@@ -30,6 +30,16 @@ func (r *Renderer) Render(w io.Writer, source []byte, n ast.Node) error {
 }
 
 func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
+	defer func() {
+		if n.Type() == ast.TypeBlock {
+			state := r.currentState()
+			pw, _ := r.pdf.GetPageSize()
+			_, tm, _, _ := r.pdf.GetMargins()
+			r.pdf.SetMargins(state.XMin, tm, pw-state.XMax)
+			r.pdf.SetX(state.XMin)
+		}
+	}()
+
 	if entering {
 		var newState State
 		if n.Type() == ast.TypeDocument {
@@ -45,22 +55,9 @@ func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		newState.Style = r.styler.Style(newState.Style, n)
 		r.states = append(r.states, &newState)
 
-		if n.Type() == ast.TypeBlock {
-			state := r.currentState()
-			pw, _ := r.pdf.GetPageSize()
-			_, tm, _, _ := r.pdf.GetMargins()
-			r.pdf.SetMargins(state.XMin, tm, pw-state.XMax)
-		}
 	} else {
 		defer func() {
 			r.states = r.states[:len(r.states)-1]
-
-			if n.Type() == ast.TypeBlock {
-				state := r.currentState()
-				pw, _ := r.pdf.GetPageSize()
-				_, tm, _, _ := r.pdf.GetMargins()
-				r.pdf.SetMargins(state.XMin, tm, pw-state.XMax)
-			}
 		}()
 	}
 
