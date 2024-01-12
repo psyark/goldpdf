@@ -63,12 +63,6 @@ func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		return r.renderText(n, entering)
 	case *ast.ThematicBreak:
 		return r.renderThematicBreak(n, entering)
-	case *ast.CodeSpan:
-		return r.renderCodeSpan(n, entering)
-	case *ast.Emphasis:
-		return r.renderEmphasis(n, entering)
-	case *xast.Strikethrough:
-		return r.renderStrikethrough(n, entering)
 	case *ast.Blockquote:
 		return r.renderBlockquote(n, entering)
 	case *ast.List:
@@ -83,6 +77,9 @@ func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		return r.renderAutoLink(n, entering)
 	case *ast.Image:
 		return r.renderImage(n, entering)
+
+	case *ast.CodeSpan, *ast.Emphasis, *xast.Strikethrough:
+		return ast.WalkContinue, nil // do nothing
 
 	default:
 		if entering {

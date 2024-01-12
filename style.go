@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-pdf/fpdf"
 	"github.com/yuin/goldmark/ast"
+	xast "github.com/yuin/goldmark/extension/ast"
 )
 
 type Style struct {
@@ -58,8 +59,17 @@ func (s *DefaultStyler) Style(current Style, n ast.Node) Style {
 	case *ast.Link:
 		current.Color = color.RGBA{B: 0xFF, A: 0xFF}
 		current.Underline = true
+	case *ast.Emphasis:
+		switch n.Level {
+		case 2:
+			current.Bold = true
+		default:
+			current.Italic = true
+		}
 	case *ast.CodeBlock, *ast.CodeSpan:
 		current.Color = color.RGBA{R: 0x99, G: 0x99, B: 0, A: 255}
+	case *xast.Strikethrough:
+		current.Strike = true
 	}
 	return current
 }
