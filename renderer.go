@@ -150,14 +150,33 @@ func (r *Renderer) currentState() *State {
 func (r *Renderer) AddOptions(options ...renderer.Option) {
 }
 
-func New() renderer.Renderer {
+type Option func(*config)
+
+type config struct {
+	styler Styler
+}
+
+func New(options ...Option) renderer.Renderer {
 	pdf := fpdf.New(fpdf.OrientationPortrait, "pt", "A4", ".")
 	pdf.AddPage()
-	pdf.SetFont("Arial", "", 16)
+
+	c := &config{
+		styler: &DefaultStyler{FontFamily: "Arial", FontSize: 12, Color: color.Black},
+	}
+
+	for _, option := range options {
+		option(c)
+	}
 
 	return &Renderer{
 		pdf:    pdf,
 		states: []*State{},
-		styler: &DefaultStyler{FontFamily: "", FontSize: 12, Color: color.Black},
+		styler: c.styler,
+	}
+}
+
+func WithStyler(styler Styler) Option {
+	return func(c *config) {
+		c.styler = styler
 	}
 }
