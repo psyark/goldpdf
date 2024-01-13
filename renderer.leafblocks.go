@@ -37,6 +37,7 @@ func (r *Renderer) renderFencedCodeBlock(n *ast.FencedCodeBlock, entering bool) 
 			code += string(line.Value(r.source))
 		}
 
+		// TODO ボーダー・背景をインラインではなくブロックレベルで描画
 		r.pdf.Ln(0)
 		r.drawText(code)
 	} else {

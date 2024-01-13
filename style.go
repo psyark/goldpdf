@@ -10,13 +10,21 @@ import (
 )
 
 type Style struct {
-	Color      color.Color
-	FontSize   float64
-	FontFamily string
-	Bold       bool
-	Italic     bool
-	Strike     bool
-	Underline  bool
+	Color           color.Color
+	BackgroundColor color.Color
+	FontSize        float64
+	FontFamily      string
+	Bold            bool
+	Italic          bool
+	Strike          bool
+	Underline       bool
+	Border          Border
+}
+
+type Border struct {
+	Width  float64
+	Color  color.Color
+	Radius float64
 }
 
 func (s Style) Apply(pdf *fpdf.Fpdf) {
@@ -49,11 +57,17 @@ type DefaultStyler struct {
 }
 
 func (s *DefaultStyler) Style(current Style, n ast.Node) Style {
+	if n.Type() == ast.TypeInline && n.Parent().Type() == ast.TypeBlock {
+		current.Border = Border{}
+		current.BackgroundColor = color.Transparent
+	}
+
 	switch n := n.(type) {
 	case *ast.Document:
 		current.FontFamily = s.FontFamily
 		current.FontSize = s.FontSize
 		current.Color = s.Color
+		current.BackgroundColor = color.Transparent
 	case *ast.Heading:
 		current.FontSize = s.FontSize * math.Pow(1.15, float64(7-n.Level))
 	case *ast.Link:
@@ -67,7 +81,9 @@ func (s *DefaultStyler) Style(current Style, n ast.Node) Style {
 			current.Italic = true
 		}
 	case *ast.FencedCodeBlock, *ast.CodeSpan:
-		current.Color = color.RGBA{R: 0x99, G: 0x99, B: 0, A: 255}
+		current.Color = color.Black
+		current.BackgroundColor = color.Gray{Y: 0xF1}
+		current.Border = Border{Width: 1, Color: color.Gray{Y: 0xE1}, Radius: 3}
 	case *xast.Strikethrough:
 		current.Strike = true
 	}

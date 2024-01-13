@@ -118,6 +118,38 @@ func (r *Renderer) drawText(text string) {
 	w := state.XMax - state.XMin
 	lines := r.pdf.SplitText(text, w)
 
+	r.pdf.SetCellMargin(0)
+
+	if state.Style.BackgroundColor != nil { // background
+		cr, cg, cb, ca := state.Style.BackgroundColor.RGBA()
+		if ca != 0 { // テストに使うImagemagickがアルファに対応していないため
+			x, y := r.pdf.GetXY()
+			for _, line := range lines {
+				sw := r.pdf.GetStringWidth(line)
+				r.pdf.SetAlpha(float64(ca)/0xFFFF, "")
+				r.pdf.SetFillColor(int(cr>>8), int(cg>>8), int(cb>>8))
+				r.pdf.RoundedRect(r.pdf.GetX(), r.pdf.GetY(), sw, state.Style.FontSize, state.Style.Border.Radius, "1234", "F")
+				r.pdf.Ln(state.Style.FontSize)
+			}
+			r.pdf.SetXY(x, y)
+		}
+	}
+	if state.Style.Border.Width != 0 { // border
+		cr, cg, cb, ca := state.Style.Border.Color.RGBA()
+		if ca != 0 { // テストに使うImagemagickがアルファに対応していないため
+			x, y := r.pdf.GetXY()
+			for _, line := range lines {
+				sw := r.pdf.GetStringWidth(line)
+				r.pdf.SetLineWidth(state.Style.Border.Width)
+				r.pdf.SetAlpha(float64(ca)/0xFFFF, "")
+				r.pdf.SetDrawColor(int(cr>>8), int(cg>>8), int(cb>>8))
+				r.pdf.RoundedRect(r.pdf.GetX(), r.pdf.GetY(), sw, state.Style.FontSize, state.Style.Border.Radius, "1234", "D")
+				r.pdf.Ln(state.Style.FontSize)
+			}
+			r.pdf.SetXY(x, y)
+		}
+	}
+
 	// y := r.pdf.GetY()
 	// page := r.pdf.PageCount()
 	for i, line := range lines {
@@ -127,7 +159,11 @@ func (r *Renderer) drawText(text string) {
 		if i == len(lines)-1 {
 			ln = 0
 		}
+
+		r.pdf.SetAlpha(1, "")
 		r.pdf.SetCellMargin(0)
+		r.pdf.SetFillColor(0x33, 0x33, 0x33)
+		r.pdf.SetDrawColor(0xFF, 0xFF, 0xFF)
 		r.pdf.CellFormat(sw, state.Style.FontSize, line, "", ln, "", false, 0, state.Link)
 	}
 	// r.pdf.SetY(y)
