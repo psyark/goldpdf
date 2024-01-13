@@ -6,13 +6,14 @@ import (
 
 func (r *Renderer) renderThematicBreak(n *ast.ThematicBreak, entering bool) (ast.WalkStatus, error) {
 	if entering {
-		fs := r.currentState().Style.FontSize
+		s := r.currentState()
 		y := r.pdf.GetY()
-		lm, _, rm, _ := r.pdf.GetMargins()
-		width, _ := r.pdf.GetPageSize()
-		r.pdf.Ln(fs)
-		r.pdf.Line(lm, y, width-rm, y)
-		r.pdf.Ln(fs)
+
+		r.pdf.SetDrawColor(0x80, 0x80, 0x80)
+		r.pdf.SetLineWidth(2)
+
+		r.pdf.Line(s.XMin, y+10, s.XMax, y+10)
+		r.pdf.Ln(20)
 	}
 	return ast.WalkContinue, nil
 }

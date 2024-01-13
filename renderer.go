@@ -1,10 +1,9 @@
 package goldpdf
 
 import (
-	"fmt"
 	"image/color"
 	"io"
-	"strings"
+	"log"
 
 	"github.com/go-pdf/fpdf"
 	"github.com/yuin/goldmark/ast"
@@ -102,7 +101,7 @@ func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
 
 	default:
 		if entering {
-			fmt.Printf("%v not implemented\n", n.Kind().String())
+			log.Printf("%v not implemented\n", n.Kind().String())
 		}
 		return ast.WalkContinue, nil
 	}
@@ -118,23 +117,18 @@ func (r *Renderer) drawText(text string) {
 
 	w := state.XMax - state.XMin
 	lines := r.pdf.SplitText(text, w)
-	if len(lines) != 1 {
-		fmt.Println(w)
-		fmt.Println(strings.Join(lines, "\n"))
-		fmt.Println()
-	}
 
 	// y := r.pdf.GetY()
 	// page := r.pdf.PageCount()
 	for i, line := range lines {
 		sw := r.pdf.GetStringWidth(line)
-		// r.pdf.SetDrawColor()
+
 		ln := 2
 		if i == len(lines)-1 {
 			ln = 0
 		}
 		r.pdf.SetCellMargin(0)
-		r.pdf.CellFormat(sw, state.Style.FontSize, line, "1", ln, "", false, 0, state.Link)
+		r.pdf.CellFormat(sw, state.Style.FontSize, line, "", ln, "", false, 0, state.Link)
 	}
 	// r.pdf.SetY(y)
 	// r.pdf.SetPage(page)

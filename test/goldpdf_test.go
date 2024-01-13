@@ -72,8 +72,6 @@ func TestConvert(t *testing.T) {
 				wantName := fmt.Sprintf("testdata/%s.png", baseName)
 				diffName := fmt.Sprintf("testdata/%s_diff.png", baseName)
 				gotName := fmt.Sprintf("testdata/%s_got.png", baseName)
-				os.Remove(diffName)
-				os.Remove(gotName)
 
 				if wantBytes, err := os.ReadFile(wantName); !os.IsNotExist(err) {
 					diff, err := CompareImages(wantBytes, gotBytes)
@@ -95,8 +93,13 @@ func TestConvert(t *testing.T) {
 							t.Fatal(err)
 						}
 						t.Fatal("mismatch")
+					} else {
+						os.Remove(diffName)
+						os.Remove(gotName)
 					}
 				} else {
+					os.Remove(diffName)
+					os.Remove(gotName)
 					if err := os.WriteFile(wantName, gotBytes, 0666); err != nil {
 						t.Fatal(err)
 					}
