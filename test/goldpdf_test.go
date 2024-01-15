@@ -3,7 +3,9 @@ package goldpdftest
 import (
 	"bytes"
 	"fmt"
+	"image"
 	"image/color"
+	"image/draw"
 	"image/png"
 	"os"
 	"strings"
@@ -47,9 +49,7 @@ func TestConvert(t *testing.T) {
 						extension.Table,
 					),
 					goldmark.WithRenderer(
-						goldpdf.New(
-							goldpdf.WithStyler(&goldpdf.DefaultStyler{FontFamily: "Arial", FontSize: 12, Color: color.White}),
-						),
+						goldpdf.New(),
 					),
 				)
 
@@ -57,17 +57,17 @@ func TestConvert(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				mw := imagick.NewMagickWand()
-				defer mw.Destroy()
-
-				if err := mw.ReadImageBlob(buf.Bytes()); err != nil {
-					t.Fatal(err)
-				}
-				if err := mw.SetImageFormat("png"); err != nil {
+				got, err := capturePDF(buf.Bytes(), color.White)
+				if err != nil {
 					t.Fatal(err)
 				}
 
-				gotBytes := mw.GetImageBlob()
+				buf.Reset()
+				if err := png.Encode(buf, got); err != nil {
+					t.Fatal(err)
+				}
+
+				gotBytes := buf.Bytes()
 
 				wantName := fmt.Sprintf("testdata/%s.png", baseName)
 				diffName := fmt.Sprintf("testdata/%s_diff.png", baseName)
@@ -107,4 +107,27 @@ func TestConvert(t *testing.T) {
 			})
 		}
 	}
+}
+
+func capturePDF(pdfBytes []byte, bgColor color.Color) (image.Image, error) {
+	mw := imagick.NewMagickWand()
+	defer mw.Destroy()
+
+	if err := mw.ReadImageBlob(pdfBytes); err != nil {
+		return nil, err
+	}
+	if err := mw.SetImageFormat("png"); err != nil {
+		return nil, err
+	}
+
+	img, err := png.Decode(bytes.NewReader(mw.GetImageBlob()))
+	if err != nil {
+		return nil, err
+	}
+
+	bg := image.NewRGBA(img.Bounds())
+	draw.Draw(bg, bg.Rect, image.NewUniform(bgColor), image.Point{}, draw.Over)
+	draw.Draw(bg, bg.Rect, img, image.Point{}, draw.Over)
+
+	return bg, nil
 }

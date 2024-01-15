@@ -12,6 +12,7 @@ import (
 )
 
 type Renderer struct {
+	pdfProvider PDFProvider
 	source      []byte
 	pdf         *fpdf.Fpdf
 	states      []*State
@@ -22,6 +23,8 @@ type Renderer struct {
 func (r *Renderer) Render(w io.Writer, source []byte, n ast.Node) error {
 	r.source = source
 	if n.Type() == ast.TypeDocument {
+		r.pdf = r.pdfProvider()
+		r.pdf.AddPage()
 		if err := ast.Walk(n, r.walk); err != nil {
 			return err
 		}
@@ -183,15 +186,14 @@ func (r *Renderer) AddOptions(options ...renderer.Option) {
 type Option func(*config)
 
 type config struct {
-	styler Styler
+	pdfProvider PDFProvider
+	styler      Styler
 }
 
 func New(options ...Option) renderer.Renderer {
-	pdf := fpdf.New(fpdf.OrientationPortrait, "pt", "A4", ".")
-	pdf.AddPage()
-
 	c := &config{
-		styler: &DefaultStyler{FontFamily: "Arial", FontSize: 12, Color: color.Black},
+		pdfProvider: func() *fpdf.Fpdf { return fpdf.New(fpdf.OrientationPortrait, "pt", "A4", ".") },
+		styler:      &DefaultStyler{FontFamily: "Arial", FontSize: 12, Color: color.Black},
 	}
 
 	for _, option := range options {
@@ -199,9 +201,17 @@ func New(options ...Option) renderer.Renderer {
 	}
 
 	return &Renderer{
-		pdf:    pdf,
-		states: []*State{},
-		styler: c.styler,
+		pdfProvider: c.pdfProvider,
+		styler:      c.styler,
+		states:      []*State{},
+	}
+}
+
+type PDFProvider func() *fpdf.Fpdf
+
+func WithPDFProvider(pdfProvider PDFProvider) Option {
+	return func(c *config) {
+		c.pdfProvider = pdfProvider
 	}
 }
 

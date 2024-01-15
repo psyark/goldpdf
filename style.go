@@ -57,7 +57,7 @@ type DefaultStyler struct {
 }
 
 func (s *DefaultStyler) Style(current Style, n ast.Node) Style {
-	if n.Type() == ast.TypeInline && n.Parent().Type() == ast.TypeBlock {
+	if n.Parent() != nil && n.Parent().Type() == ast.TypeBlock {
 		current.Border = Border{}
 		current.BackgroundColor = color.Transparent
 	}
@@ -86,6 +86,10 @@ func (s *DefaultStyler) Style(current Style, n ast.Node) Style {
 		current.Border = Border{Width: 1, Color: color.Gray{Y: 0xE1}, Radius: 3}
 	case *xast.Strikethrough:
 		current.Strike = true
+	case *xast.TableHeader:
+		current.BackgroundColor = color.Gray{Y: 0x80}
+	case *xast.TableCell:
+		current.Border = Border{Width: 1, Color: s.Color}
 	}
 	return current
 }
