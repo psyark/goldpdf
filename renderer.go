@@ -1,7 +1,6 @@
 package goldpdf
 
 import (
-	"bytes"
 	"fmt"
 	"image/color"
 	"io"
@@ -15,7 +14,7 @@ import (
 type Renderer struct {
 	pdfProvider PDFProvider
 	source      []byte
-	pdf         *fpdf.Fpdf
+	pdf         PDF
 	styler      Styler
 	imageLoader imageLoader
 }
@@ -23,7 +22,6 @@ type Renderer struct {
 // drawTextFlow はテキストフローを描画し、そのサイズを返します
 // drawが偽のとき、描画は行わずにサイズだけを返します
 func (r *Renderer) drawTextFlow(elements FlowElements, draw bool, rs RenderState) (float64, error) {
-
 	height := 0.0
 	y := rs.Y
 	for i := 0; i < 100 && !elements.IsEmpty(); i++ {
@@ -33,38 +31,12 @@ func (r *Renderer) drawTextFlow(elements FlowElements, draw bool, rs RenderState
 			for _, e := range line {
 				switch e := e.(type) {
 				case *TextSpan:
-					e.Format.Apply(r.pdf) //TODO 整理
-					sw := r.pdf.GetStringWidth(e.Text)
-					if e.Format.BackgroundColor != nil {
-						cr, cg, cb, ca := e.Format.BackgroundColor.RGBA()
-						if ca != 0 {
-							r.pdf.SetAlpha(float64(ca)/0xFFFF, "")
-							r.pdf.SetFillColor(int(cr>>8), int(cg>>8), int(cb>>8))
-							r.pdf.RoundedRect(x, y, sw, e.Format.FontSize, e.Format.Border.Radius, "1234", "F")
-						}
-					}
-					if e.Format.Border.Color != nil && e.Format.Border.Width != 0 {
-						cr, cg, cb, ca := e.Format.Border.Color.RGBA()
-						if ca != 0 {
-							r.pdf.SetLineWidth(e.Format.Border.Width)
-							r.pdf.SetAlpha(float64(ca)/0xFFFF, "")
-							r.pdf.SetDrawColor(int(cr>>8), int(cg>>8), int(cb>>8))
-							r.pdf.RoundedRect(x, y, sw, e.Format.FontSize, e.Format.Border.Radius, "1234", "D")
-						}
-					}
-					e.Format.Apply(r.pdf) // TODO 整理
-					r.pdf.Text(x, y+e.Format.FontSize, e.Text)
+					sw := r.pdf.GetSpanWidth(e)
+					r.pdf.DrawTextSpan(x, y, e)
 					x += sw
 				case *Image:
-					r.pdf.RegisterImageOptionsReader(
-						e.Info.Name,
-						fpdf.ImageOptions{ImageType: e.Info.Type},
-						bytes.NewReader(e.Info.Data),
-					)
-
-					r.pdf.ImageOptions(e.Info.Name, x, y, float64(e.Info.Width), float64(e.Info.Height), false, fpdf.ImageOptions{}, 0, "")
+					r.pdf.DrawImage(x, y, e.Info)
 					x += float64(e.Info.Width)
-
 				default:
 					return 0, fmt.Errorf("unsupported element: %v", e)
 				}
@@ -160,10 +132,7 @@ func (r *Renderer) drawBlockQuote(n *ast.Blockquote, draw bool, rs RenderState) 
 			return 0, err
 		}
 
-		r.pdf.SetAlpha(1, "")
-		r.pdf.SetLineWidth(4)
-		r.pdf.SetDrawColor(0, 0, 0)
-		r.pdf.Line(rs.X+2, rs.Y, rs.X+2, rs.Y+h)
+		r.pdf.DrawLine(rs.X+2, rs.Y, rs.X+2, rs.Y+h, color.Gray{Y: 0x80}, 4)
 	}
 
 	return r.drawDefaultBlock(n, draw, rs2)
@@ -171,10 +140,7 @@ func (r *Renderer) drawBlockQuote(n *ast.Blockquote, draw bool, rs RenderState) 
 
 func (r *Renderer) drawThematicBreak(n *ast.ThematicBreak, draw bool, rs RenderState) (float64, error) {
 	if draw {
-		r.pdf.SetAlpha(1, "")
-		r.pdf.SetDrawColor(0x80, 0x80, 0x80)
-		r.pdf.SetLineWidth(2)
-		r.pdf.Line(rs.X, rs.Y+20, rs.X+rs.W, rs.Y+20)
+		r.pdf.DrawLine(rs.X, rs.Y+20, rs.X+rs.W, rs.Y+20, color.Gray{Y: 0x80}, 2)
 	}
 	return 40, nil
 }
@@ -217,20 +183,25 @@ func (r *Renderer) getFlowElements(n ast.Node, tf TextFormat) []FlowElement {
 }
 
 func (r *Renderer) Render(w io.Writer, source []byte, n ast.Node) error {
-	r.source = source
-	if n.Type() == ast.TypeDocument {
-		r.pdf = r.pdfProvider()
-		r.pdf.AddPage()
-
-		lm, tm, rm, _ := r.pdf.GetMargins()
-		w, _ := r.pdf.GetPageSize()
-		rs := RenderState{X: lm, Y: tm, W: w - lm - rm}
-
-		if _, err := r.drawBlockNode(n, true, rs); err != nil {
-			return err
-		}
+	if n.Type() != ast.TypeDocument {
+		return fmt.Errorf("想定しないノード")
 	}
-	return r.pdf.Output(w)
+
+	fpdf := r.pdfProvider()
+	fpdf.AddPage()
+
+	r.pdf = &pdfImpl{fpdf: fpdf}
+	r.source = source
+
+	lm, tm, rm, _ := fpdf.GetMargins()
+	pw, _ := fpdf.GetPageSize()
+
+	rs := RenderState{X: lm, Y: tm, W: pw - lm - rm}
+
+	if _, err := r.drawBlockNode(n, true, rs); err != nil {
+		return err
+	}
+	return fpdf.Output(w)
 }
 
 // AddOptions does nothing
