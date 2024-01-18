@@ -1,9 +1,10 @@
 package goldpdf
 
 import (
+	"bytes"
+	"fmt"
 	"image/color"
 	"io"
-	"log"
 
 	"github.com/go-pdf/fpdf"
 	"github.com/yuin/goldmark/ast"
@@ -15,9 +16,204 @@ type Renderer struct {
 	pdfProvider PDFProvider
 	source      []byte
 	pdf         *fpdf.Fpdf
-	states      []*State
 	styler      Styler
 	imageLoader imageLoader
+}
+
+// drawTextFlow はテキストフローを描画し、そのサイズを返します
+// drawが偽のとき、描画は行わずにサイズだけを返します
+func (r *Renderer) drawTextFlow(elements FlowElements, draw bool, rs RenderState) (float64, error) {
+
+	height := 0.0
+	y := rs.Y
+	for i := 0; i < 100 && !elements.IsEmpty(); i++ {
+		line, lineHeight := elements.GetLine(r.pdf, rs.W)
+		x := rs.X
+		if draw {
+			for _, e := range line {
+				switch e := e.(type) {
+				case *TextSpan:
+					e.Format.Apply(r.pdf) //TODO 整理
+					sw := r.pdf.GetStringWidth(e.Text)
+					if e.Format.BackgroundColor != nil {
+						cr, cg, cb, ca := e.Format.BackgroundColor.RGBA()
+						if ca != 0 {
+							r.pdf.SetAlpha(float64(ca)/0xFFFF, "")
+							r.pdf.SetFillColor(int(cr>>8), int(cg>>8), int(cb>>8))
+							r.pdf.RoundedRect(x, y, sw, e.Format.FontSize, e.Format.Border.Radius, "1234", "F")
+						}
+					}
+					if e.Format.Border.Color != nil && e.Format.Border.Width != 0 {
+						cr, cg, cb, ca := e.Format.Border.Color.RGBA()
+						if ca != 0 {
+							r.pdf.SetLineWidth(e.Format.Border.Width)
+							r.pdf.SetAlpha(float64(ca)/0xFFFF, "")
+							r.pdf.SetDrawColor(int(cr>>8), int(cg>>8), int(cb>>8))
+							r.pdf.RoundedRect(x, y, sw, e.Format.FontSize, e.Format.Border.Radius, "1234", "D")
+						}
+					}
+					e.Format.Apply(r.pdf) // TODO 整理
+					r.pdf.Text(x, y+e.Format.FontSize, e.Text)
+					x += sw
+				case *Image:
+					r.pdf.RegisterImageOptionsReader(
+						e.Info.Name,
+						fpdf.ImageOptions{ImageType: e.Info.Type},
+						bytes.NewReader(e.Info.Data),
+					)
+
+					r.pdf.ImageOptions(e.Info.Name, x, y, float64(e.Info.Width), float64(e.Info.Height), false, fpdf.ImageOptions{}, 0, "")
+					x += float64(e.Info.Width)
+
+				default:
+					return 0, fmt.Errorf("unsupported element: %v", e)
+				}
+			}
+		}
+		height += lineHeight
+		y += lineHeight
+	}
+
+	return height, nil
+}
+
+// drawBlockNode はブロックノード（またはドキュメントノード）を描画し、そのサイズを返します
+// drawが偽のとき、描画は行わずにサイズだけを返します
+func (r *Renderer) drawBlockNode(n ast.Node, draw bool, rs RenderState) (float64, error) {
+	if n.Type() == ast.TypeInline {
+		return 0, fmt.Errorf("drawBlockNode called with inline node: %v > %v", n.Parent().Kind(), n.Kind())
+	}
+
+	switch n := n.(type) {
+	case *ast.Paragraph, *ast.TextBlock, *ast.Heading, *xast.TableCell: // 内部にインラインがくるやつ
+		return r.drawInlineContainer(n, draw, rs)
+
+	case *ast.ThematicBreak:
+		return r.drawThematicBreak(n, draw, rs)
+	case *ast.Blockquote:
+		return r.drawBlockQuote(n, draw, rs)
+
+	default: // 内部にブロックがくるやつ
+		return r.drawDefaultBlock(n, draw, rs)
+	}
+}
+
+func (r *Renderer) drawInlineContainer(n ast.Node, draw bool, rs RenderState) (float64, error) {
+	// TODO: default style
+	tf := TextFormat{
+		Color:      color.Black,
+		FontSize:   12,
+		FontFamily: "Arial",
+	}
+
+	switch n := n.(type) {
+	case *ast.Paragraph, *ast.Heading, *ast.TextBlock, *xast.TableCell:
+	default:
+		return 0, fmt.Errorf("unsupported kind: %v", n.Kind().String())
+	}
+
+	bs, tf := r.styler.Style(n, tf)
+
+	rs2 := rs
+	rs2.Y += bs.Margin.Top
+	elements := r.getFlowElements(n, tf)
+	// if draw {
+	// 	height, _ := r.drawTextFlow(elements, false, rs2)
+	// 	// ここで背景を描画
+	// 	r.pdf.SetAlpha(1, "")
+	// 	r.pdf.SetLineWidth(0.5)
+	// 	r.pdf.SetDrawColor(0x00, 0x80, 0x80)
+	// 	r.pdf.SetFillColor(0xEE, 0xFF, 0xFF)
+	// 	r.pdf.SetTextColor(0x00, 0x66, 0x66)
+	// 	r.pdf.Rect(rs.X, rs.Y, rs.W, height+bs.Margin.Top+bs.Margin.Bottom, "DF")
+
+	// 	// debug
+	// 	r.pdf.SetFont("Arial", "B", 8)
+	// 	t := fmt.Sprintf("[%s]", n.Kind().String())
+	// 	r.pdf.Text(rs.X+rs.W-r.pdf.GetStringWidth(t)-2, rs.Y+10, t)
+	// }
+	height, err := r.drawTextFlow(elements, draw, rs2)
+	return height + bs.Margin.Top + bs.Margin.Bottom, err
+}
+
+func (r *Renderer) drawDefaultBlock(n ast.Node, draw bool, rs RenderState) (float64, error) {
+	var height float64
+	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
+		if h, err := r.drawBlockNode(c, draw, rs); err != nil {
+			return 0, err
+		} else {
+			height += h
+			rs.Y += h
+		}
+	}
+	return height, nil
+}
+
+func (r *Renderer) drawBlockQuote(n *ast.Blockquote, draw bool, rs RenderState) (float64, error) {
+	rs2 := rs
+	rs2.X += 10
+	rs2.W -= 10
+
+	if draw {
+		h, err := r.drawDefaultBlock(n, false, rs2)
+		if err != nil {
+			return 0, err
+		}
+
+		r.pdf.SetAlpha(1, "")
+		r.pdf.SetLineWidth(4)
+		r.pdf.SetDrawColor(0, 0, 0)
+		r.pdf.Line(rs.X+2, rs.Y, rs.X+2, rs.Y+h)
+	}
+
+	return r.drawDefaultBlock(n, draw, rs2)
+}
+
+func (r *Renderer) drawThematicBreak(n *ast.ThematicBreak, draw bool, rs RenderState) (float64, error) {
+	if draw {
+		r.pdf.SetAlpha(1, "")
+		r.pdf.SetDrawColor(0x80, 0x80, 0x80)
+		r.pdf.SetLineWidth(2)
+		r.pdf.Line(rs.X, rs.Y+20, rs.X+rs.W, rs.Y+20)
+	}
+	return 40, nil
+}
+
+func (r *Renderer) getFlowElements(n ast.Node, tf TextFormat) []FlowElement {
+	elements := []FlowElement{}
+
+	_, tf = r.styler.Style(n, tf)
+
+	if n.Type() == ast.TypeInline {
+		switch n := n.(type) {
+		case *ast.Text:
+			elements = append(elements, &TextSpan{Format: tf, Text: string(n.Text(r.source))})
+			if n.HardLineBreak() {
+				elements = append(elements, &HardBreak{})
+			}
+		case *ast.Emphasis, *ast.Link, *ast.CodeSpan, *xast.Strikethrough:
+		case *ast.Image:
+			info := r.imageLoader.load(string(n.Destination))
+			if info != nil {
+				// TODO リンク切れ
+				elements = append(elements, &Image{Info: info})
+			}
+		case *ast.AutoLink:
+			ts := &TextSpan{
+				Text:   string(n.URL(r.source)),
+				Format: tf,
+			}
+			elements = append(elements, ts)
+		default:
+			fmt.Println("🍣", n.Kind())
+		}
+	}
+
+	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
+		e := r.getFlowElements(c, tf)
+		elements = append(elements, e...)
+	}
+	return elements
 }
 
 func (r *Renderer) Render(w io.Writer, source []byte, n ast.Node) error {
@@ -25,198 +221,41 @@ func (r *Renderer) Render(w io.Writer, source []byte, n ast.Node) error {
 	if n.Type() == ast.TypeDocument {
 		r.pdf = r.pdfProvider()
 		r.pdf.AddPage()
-		if err := ast.Walk(n, r.walk); err != nil {
+
+		lm, tm, rm, _ := r.pdf.GetMargins()
+		w, _ := r.pdf.GetPageSize()
+		rs := RenderState{X: lm, Y: tm, W: w - lm - rm}
+
+		if _, err := r.drawBlockNode(n, true, rs); err != nil {
 			return err
 		}
 	}
 	return r.pdf.Output(w)
 }
 
-func (r *Renderer) walk(n ast.Node, entering bool) (ast.WalkStatus, error) {
-	defer func() {
-		if n.Type() == ast.TypeBlock {
-			state := r.currentState()
-			pw, _ := r.pdf.GetPageSize()
-			_, tm, _, _ := r.pdf.GetMargins()
-			r.pdf.SetMargins(state.XMin, tm, pw-state.XMax)
-			r.pdf.SetX(state.XMin)
-		}
-	}()
-
-	if entering {
-		var newState State
-		if n.Type() == ast.TypeDocument {
-			ml, _, mr, _ := r.pdf.GetMargins()
-			pw, _ := r.pdf.GetPageSize()
-			newState.XMin = ml
-			newState.XMax = pw - mr
-		} else {
-			newState = *r.currentState()
-		}
-
-		newState.Node = n
-		newState.Style = r.styler.Style(newState.Style, n)
-		r.states = append(r.states, &newState)
-
-	} else {
-		defer func() {
-			r.states = r.states[:len(r.states)-1]
-		}()
-	}
-
-	switch n := n.(type) {
-	case *ast.Heading:
-		return r.renderHeading(n, entering)
-	case *ast.FencedCodeBlock:
-		return r.renderFencedCodeBlock(n, entering)
-	case *ast.Paragraph:
-		return r.renderParagraph(n, entering)
-	case *ast.Text:
-		return r.renderText(n, entering)
-	case *ast.ThematicBreak:
-		return r.renderThematicBreak(n, entering)
-	case *ast.Blockquote:
-		return r.renderBlockquote(n, entering)
-	case *ast.List:
-		return r.renderList(n, entering)
-	case *ast.ListItem:
-		return r.renderListItem(n, entering)
-	case *ast.TextBlock:
-		return r.renderTextBlock(n, entering)
-	case *ast.Link:
-		return r.renderLink(n, entering)
-	case *ast.AutoLink:
-		return r.renderAutoLink(n, entering)
-	case *ast.Image:
-		return r.renderImage(n, entering)
-
-	case *xast.Table:
-		return r.renderTable(n, entering)
-	case *xast.TableHeader:
-		return r.renderTableHeader(n, entering)
-	case *xast.TableRow:
-		return r.renderTableRow(n, entering)
-	case *xast.TableCell:
-		return r.renderTableCell(n, entering)
-
-	case *ast.Document, *ast.CodeSpan, *ast.Emphasis, *xast.Strikethrough:
-		return ast.WalkContinue, nil // do nothing
-
-	default:
-		if entering {
-			log.Printf("%v not implemented\n", n.Kind().String())
-		}
-		return ast.WalkContinue, nil
-	}
-}
-
-// drawText はインラインの背景やボーダーを含むスタイル、折返し、ページ跨ぎを考慮して
-// テキストを描画します。
-// 内部でfpdf.CellFormatへの複数回の呼び出しを行います
-// 全てのテキストの描画はこの関数を通して行ってください
-func (r *Renderer) drawText(text string) {
-	state := r.currentState()
-	state.Style.Apply(r.pdf)
-
-	w := state.XMax - state.XMin
-	lines := r.pdf.SplitText(text, w)
-
-	r.pdf.SetCellMargin(0)
-
-	if state.Style.BackgroundColor != nil { // background
-		cr, cg, cb, ca := state.Style.BackgroundColor.RGBA()
-		if ca != 0 { // テストに使うImagemagickがアルファに対応していないため
-			x, y := r.pdf.GetXY()
-			for _, line := range lines {
-				sw := r.pdf.GetStringWidth(line)
-				r.pdf.SetAlpha(float64(ca)/0xFFFF, "")
-				r.pdf.SetFillColor(int(cr>>8), int(cg>>8), int(cb>>8))
-				r.pdf.RoundedRect(r.pdf.GetX(), r.pdf.GetY(), sw, state.Style.FontSize, state.Style.Border.Radius, "1234", "F")
-				r.pdf.Ln(state.Style.FontSize)
-			}
-			r.pdf.SetXY(x, y)
-		}
-	}
-	if state.Style.Border.Width != 0 { // border
-		cr, cg, cb, ca := state.Style.Border.Color.RGBA()
-		if ca != 0 { // テストに使うImagemagickがアルファに対応していないため
-			x, y := r.pdf.GetXY()
-			for _, line := range lines {
-				sw := r.pdf.GetStringWidth(line)
-				r.pdf.SetLineWidth(state.Style.Border.Width)
-				r.pdf.SetAlpha(float64(ca)/0xFFFF, "")
-				r.pdf.SetDrawColor(int(cr>>8), int(cg>>8), int(cb>>8))
-				r.pdf.RoundedRect(r.pdf.GetX(), r.pdf.GetY(), sw, state.Style.FontSize, state.Style.Border.Radius, "1234", "D")
-				r.pdf.Ln(state.Style.FontSize)
-			}
-			r.pdf.SetXY(x, y)
-		}
-	}
-
-	// y := r.pdf.GetY()
-	// page := r.pdf.PageCount()
-	for i, line := range lines {
-		sw := r.pdf.GetStringWidth(line)
-
-		ln := 2
-		if i == len(lines)-1 {
-			ln = 0
-		}
-
-		r.pdf.SetAlpha(1, "")
-		r.pdf.SetCellMargin(0)
-		r.pdf.SetFillColor(0x33, 0x33, 0x33)
-		r.pdf.SetDrawColor(0xFF, 0xFF, 0xFF)
-		r.pdf.CellFormat(sw, state.Style.FontSize, line, "", ln, "", false, 0, state.Link)
-	}
-	// r.pdf.SetY(y)
-	// r.pdf.SetPage(page)
-
-	// r.pdf.WriteLinkString(state.Style.FontSize, text, state.Link)
-}
-
-func (r *Renderer) currentState() *State {
-	return r.states[len(r.states)-1]
-}
-
 // AddOptions does nothing
 func (r *Renderer) AddOptions(options ...renderer.Option) {
 }
 
-type Option func(*config)
-
-type config struct {
-	pdfProvider PDFProvider
-	styler      Styler
-}
+type Option func(*Renderer)
 
 func New(options ...Option) renderer.Renderer {
-	c := &config{
+	r := &Renderer{
 		pdfProvider: func() *fpdf.Fpdf { return fpdf.New(fpdf.OrientationPortrait, "pt", "A4", ".") },
 		styler:      &DefaultStyler{FontFamily: "Arial", FontSize: 12, Color: color.Black},
 	}
-
 	for _, option := range options {
-		option(c)
+		option(r)
 	}
-
-	return &Renderer{
-		pdfProvider: c.pdfProvider,
-		styler:      c.styler,
-		states:      []*State{},
-	}
+	return r
 }
 
 type PDFProvider func() *fpdf.Fpdf
 
 func WithPDFProvider(pdfProvider PDFProvider) Option {
-	return func(c *config) {
-		c.pdfProvider = pdfProvider
-	}
+	return func(r *Renderer) { r.pdfProvider = pdfProvider }
 }
 
 func WithStyler(styler Styler) Option {
-	return func(c *config) {
-		c.styler = styler
-	}
+	return func(r *Renderer) { r.styler = styler }
 }

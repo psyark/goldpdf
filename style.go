@@ -9,7 +9,17 @@ import (
 	xast "github.com/yuin/goldmark/extension/ast"
 )
 
-type Style struct {
+type Spaces struct {
+	Left, Top, Right, Bottom float64
+}
+
+type BlockStyle struct {
+	Margin          Spaces
+	Padding         Spaces
+	BackgroundColor color.Color
+}
+
+type TextFormat struct {
 	Color           color.Color
 	BackgroundColor color.Color
 	FontSize        float64
@@ -27,7 +37,7 @@ type Border struct {
 	Radius float64
 }
 
-func (s Style) Apply(pdf *fpdf.Fpdf) {
+func (s TextFormat) Apply(pdf fpdf.Pdf) {
 	fontStyle := ""
 	if s.Bold {
 		fontStyle += "B"
@@ -44,10 +54,11 @@ func (s Style) Apply(pdf *fpdf.Fpdf) {
 	pdf.SetFont(s.FontFamily, fontStyle, s.FontSize)
 	cr, cg, cb, _ := s.Color.RGBA()
 	pdf.SetTextColor(int(cr>>8), int(cg>>8), int(cb>>8))
+	pdf.SetAlpha(1, "")
 }
 
 type Styler interface {
-	Style(Style, ast.Node) Style
+	Style(ast.Node, TextFormat) (BlockStyle, TextFormat)
 }
 
 type DefaultStyler struct {
@@ -56,40 +67,43 @@ type DefaultStyler struct {
 	Color      color.Color
 }
 
-func (s *DefaultStyler) Style(current Style, n ast.Node) Style {
-	if n.Parent() != nil && n.Parent().Type() == ast.TypeBlock {
-		current.Border = Border{}
-		current.BackgroundColor = color.Transparent
-	}
+func (s *DefaultStyler) Style(n ast.Node, format TextFormat) (BlockStyle, TextFormat) {
+	style := BlockStyle{}
 
 	switch n := n.(type) {
 	case *ast.Document:
-		current.FontFamily = s.FontFamily
-		current.FontSize = s.FontSize
-		current.Color = s.Color
-		current.BackgroundColor = color.Transparent
+		format.FontFamily = s.FontFamily
+		format.FontSize = s.FontSize
+		format.Color = s.Color
+		format.BackgroundColor = nil
 	case *ast.Heading:
-		current.FontSize = s.FontSize * math.Pow(1.15, float64(7-n.Level))
-	case *ast.Link:
-		current.Color = color.RGBA{B: 0xFF, A: 0xFF}
-		current.Underline = true
+		format.FontSize = s.FontSize * math.Pow(1.15, float64(7-n.Level))
+		style.Margin = Spaces{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
+	case *ast.Paragraph:
+		style.Margin = Spaces{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
+	case *ast.Blockquote:
+		style.Padding = Spaces{Left: 10}
+		style.Margin = Spaces{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
+	case *ast.Link, *ast.AutoLink:
+		format.Color = color.RGBA{B: 0xFF, A: 0xFF}
+		format.Underline = true
 	case *ast.Emphasis:
 		switch n.Level {
 		case 2:
-			current.Bold = true
+			format.Bold = true
 		default:
-			current.Italic = true
+			format.Italic = true
 		}
 	case *ast.FencedCodeBlock, *ast.CodeSpan:
-		current.Color = color.Black
-		current.BackgroundColor = color.Gray{Y: 0xF1}
-		current.Border = Border{Width: 1, Color: color.Gray{Y: 0xE1}, Radius: 3}
+		format.Color = color.Black
+		format.BackgroundColor = color.Gray{Y: 0xF2}
+		format.Border = Border{Width: 0.5, Color: color.Gray{Y: 0x99}, Radius: 3}
 	case *xast.Strikethrough:
-		current.Strike = true
+		format.Strike = true
 	case *xast.TableHeader:
-		current.BackgroundColor = color.Gray{Y: 0x80}
+		format.BackgroundColor = color.Gray{Y: 0x80}
 	case *xast.TableCell:
-		current.Border = Border{Width: 1, Color: s.Color}
+		format.Border = Border{Width: 1, Color: s.Color}
 	}
-	return current
+	return style, format
 }
