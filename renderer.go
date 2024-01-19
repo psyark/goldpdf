@@ -35,41 +35,68 @@ func (rc RenderContext) InPreflight() RenderContext {
 	return rc
 }
 
-// renderBlockNode はブロックノード（またはドキュメントノード）を描画し、その高さを返します
-// drawが偽のとき、描画は行わずにサイズだけを返します
-func (r *Renderer) renderBlockNode(n ast.Node, rc RenderContext) (float64, error) {
+// renderBlockNode draws a block node (or document node) inside a borderBox
+// and returns the height of its border box.
+func (r *Renderer) renderBlockNode(n ast.Node, borderBox RenderContext) (float64, error) {
 	if n.Type() == ast.TypeInline {
 		return 0, fmt.Errorf("renderBlockNode has been called with an inline node: %v > %v", n.Parent().Kind(), n.Kind())
 	}
 
 	switch n := n.(type) {
 	case *ast.Blockquote:
-		return r.renderBlockQuote(n, rc)
+		return r.renderBlockQuote(n, borderBox)
 	case *ast.FencedCodeBlock:
-		return r.renderFencedCodeBlock(n, rc)
+		return r.renderFencedCodeBlock(n, borderBox)
 	case *ast.ThematicBreak:
-		return r.renderThematicBreak(n, rc)
+		return r.renderThematicBreak(n, borderBox)
 	default:
-		return r.renderGenericBlockNode(n, rc)
+		return r.renderGenericBlockNode(n, borderBox)
 	}
 }
 
-// renderGenericBlockNode はブロックノードに対する基本的なレンダリングを提供します
-func (r *Renderer) renderGenericBlockNode(n ast.Node, rc RenderContext) (float64, error) {
+// renderGenericBlockNode provides basic rendering for all block nodes
+// except specific block nodes.
+func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext) (float64, error) {
 	bs, tf := r.styler.Style(n, TextFormat{})
-	rc.Y += bs.Margin.Top
-	height := bs.Margin.Top
+
+	if !borderBox.Preflight {
+		h, err := r.renderGenericBlockNode(n, borderBox.InPreflight())
+		if err != nil {
+			return 0, err
+		}
+		borderBox.Target.DrawRect(
+			borderBox.X,
+			borderBox.Y,
+			borderBox.W,
+			h,
+			bs.BackgroundColor,
+			bs.Border,
+		)
+	}
+
+	contentBox := borderBox.Extend(
+		bs.Border.Width+bs.Padding.Left,
+		bs.Border.Width+bs.Padding.Top,
+		-bs.Border.Width*2-bs.Padding.Horizontal(),
+	)
+
+	height := bs.Border.Width + bs.Padding.Top
 	elements := []FlowElement{}
 
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
 		switch c.Type() {
 		case ast.TypeBlock:
-			if h, err := r.renderBlockNode(c, rc); err != nil {
+			bs2, _ := r.styler.Style(c, TextFormat{})
+
+			// TODO マージンの相殺
+			height += bs2.Margin.Top
+			if h, err := r.renderBlockNode(c, contentBox.Extend(0, height, 0)); err != nil {
 				return 0, err
 			} else {
-				rc.Y += h
+				borderBox.Y += h
 				height += h
 			}
+			height += bs2.Margin.Bottom
 		case ast.TypeInline:
 			if e, err := r.getFlowElements(c, tf); err != nil {
 				return 0, err
@@ -80,14 +107,14 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, rc RenderContext) (float64
 	}
 
 	if len(elements) != 0 {
-		if h, err := r.renderFlowElements(elements, rc); err != nil {
+		if h, err := r.renderFlowElements(elements, contentBox); err != nil {
 			return 0, err
 		} else {
 			height += h
 		}
 	}
 
-	height += bs.Margin.Bottom
+	height += bs.Padding.Bottom + bs.Border.Width
 	return height, nil
 }
 
