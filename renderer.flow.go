@@ -8,13 +8,13 @@ import (
 )
 
 // getFlowElements は指定されたインラインノードとその全ての子孫ノードをFlowElementのフラットな配列として返します
-func (r *Renderer) getFlowElements(n ast.Node, tf TextFormat) ([]FlowElement, error) {
+func (r *Renderer) getFlowElements(n ast.Node, tf TextFormat) (FlowElements, error) {
 	if n.Type() != ast.TypeInline {
 		return nil, fmt.Errorf("getFlowElements has been called with a non-inline node: %s", n.Kind())
 	}
 
 	_, tf = r.styler.Style(n, tf)
-	elements := []FlowElement{}
+	elements := FlowElements{}
 
 	switch n := n.(type) {
 	case *ast.AutoLink:
@@ -49,7 +49,7 @@ func (r *Renderer) getFlowElements(n ast.Node, tf TextFormat) ([]FlowElement, er
 	return elements, nil
 }
 
-// renderFlowElements はテキストフローを描画し、そのサイズを返します
+// renderFlowElements はテキストフローを描画し、その高さを返します
 func (r *Renderer) renderFlowElements(elements FlowElements, borderBox RenderContext) (float64, error) {
 	height := 0.0
 	for !elements.IsEmpty() {

@@ -37,6 +37,7 @@ func (f *FlowElements) IsEmpty() bool {
 	return len(*f) == 0
 }
 
+// TODO PDFのメソッドにする
 func (f *FlowElements) GetLine(pdf PDF, limitWidth float64) (line FlowElements, height float64) {
 	if f.IsEmpty() {
 		return nil, 0

@@ -3,6 +3,7 @@ package goldpdf
 import (
 	"bytes"
 	"image/color"
+	"math"
 
 	"github.com/go-pdf/fpdf"
 )
@@ -10,6 +11,7 @@ import (
 type PDF interface {
 	GetSpanWidth(span *TextSpan) float64
 	GetSubSpan(span *TextSpan, width float64) *TextSpan
+	GetNaturalWidth(elements FlowElements) float64
 	DrawTextSpan(x, y float64, span *TextSpan)
 	DrawImage(x, y float64, img *imageInfo)
 	DrawBullet(x, y float64, c color.Color, r float64)
@@ -32,6 +34,25 @@ func (p *pdfImpl) GetSubSpan(span *TextSpan, width float64) *TextSpan {
 	p.applyTextFormat(span.Format)
 	lines := p.fpdf.SplitText(span.Text, width)
 	return &TextSpan{Text: lines[0], Format: span.Format}
+}
+
+func (p *pdfImpl) GetNaturalWidth(elements FlowElements) float64 {
+	width := 0.0
+
+	lineWidth := 0.0
+	for _, e := range elements {
+		switch e := e.(type) {
+		case *TextSpan:
+			lineWidth += p.GetSpanWidth(e)
+		case *Image:
+			lineWidth += float64(e.Info.Width)
+		case *HardBreak:
+			width = math.Max(width, lineWidth)
+			lineWidth = 0
+		}
+	}
+
+	return math.Max(width, lineWidth)
 }
 
 func (p *pdfImpl) DrawTextSpan(x, y float64, span *TextSpan) {

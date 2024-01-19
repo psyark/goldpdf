@@ -3,8 +3,10 @@ package goldpdf
 import (
 	"fmt"
 	"image/color"
+	"math"
 
 	"github.com/yuin/goldmark/ast"
+	xast "github.com/yuin/goldmark/extension/ast"
 )
 
 func (r *Renderer) renderBlockQuote(n *ast.Blockquote, borderBox RenderContext) (float64, error) {
@@ -67,6 +69,80 @@ func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (flo
 	}
 
 	return h, nil
+}
+
+func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64, error) {
+	// TODO TableRow, TableCellのスタイル
+	_, tf := r.styler.Style(n, TextFormat{})
+
+	cellWidths := make([]float64, len(n.Alignments))
+
+	// TODO TableRow, TableCellの余白やボーダー幅の考慮
+	for row := n.FirstChild(); row != nil; row = row.NextSibling() {
+		colIndex := 0
+		for col := row.FirstChild(); col != nil; col = col.NextSibling() {
+			elements := FlowElements{}
+			for c := col.FirstChild(); c != nil; c = c.NextSibling() {
+				e, err := r.getFlowElements(c, tf)
+				if err != nil {
+					return 0, err
+				}
+				elements = append(elements, e...)
+			}
+
+			cellWidths[colIndex] = math.Max(
+				cellWidths[colIndex],
+				borderBox.Target.GetNaturalWidth(elements),
+			)
+			colIndex++
+		}
+	}
+
+	totalWidth := 0.0
+	for _, w := range cellWidths {
+		totalWidth += w
+	}
+	if totalWidth > borderBox.W {
+		for i := range cellWidths {
+			cellWidths[i] *= borderBox.W / totalWidth
+		}
+	}
+
+	height := 0.0
+	for row := n.FirstChild(); row != nil; row = row.NextSibling() {
+		colIndex := 0
+
+		rowHeight := 0.0
+
+		cellBox := borderBox
+		cellBox.Y = borderBox.Y + height
+
+		for col := row.FirstChild(); col != nil; col = col.NextSibling() {
+			elements := FlowElements{}
+			for c := col.FirstChild(); c != nil; c = c.NextSibling() {
+				e, err := r.getFlowElements(c, tf)
+				if err != nil {
+					return 0, err
+				}
+				elements = append(elements, e...)
+			}
+
+			cellBox.W = cellWidths[colIndex]
+
+			h, err := r.renderFlowElements(elements, cellBox)
+			if err != nil {
+				return 0, err
+			}
+			rowHeight = math.Max(rowHeight, h)
+
+			cellBox.X += cellWidths[colIndex]
+			colIndex++
+		}
+
+		height += rowHeight
+	}
+
+	return height, nil
 }
 
 func (r *Renderer) renderThematicBreak(n *ast.ThematicBreak, borderBox RenderContext) (float64, error) {
