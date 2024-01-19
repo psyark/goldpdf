@@ -44,7 +44,7 @@ func (r *Renderer) renderBlockNode(n ast.Node, borderBox RenderContext) (float64
 // renderGenericBlockNode provides basic rendering for all block nodes
 // except specific block nodes.
 func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext) (float64, error) {
-	bs, tf := r.styler.Style(n, TextFormat{})
+	bs, _ := r.styler.Style(n)
 
 	if !borderBox.Preflight {
 		h, err := r.renderGenericBlockNode(n, borderBox.InPreflight())
@@ -74,7 +74,7 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext) (
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
 		switch c.Type() {
 		case ast.TypeBlock:
-			bs2, _ := r.styler.Style(c, TextFormat{})
+			bs2, _ := r.styler.Style(c)
 
 			// TODO マージンの相殺
 			height += bs2.Margin.Top
@@ -86,7 +86,7 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext) (
 			}
 			height += bs2.Margin.Bottom
 		case ast.TypeInline:
-			if e, err := r.getFlowElements(c, tf); err != nil {
+			if e, err := r.getFlowElements(c); err != nil {
 				return 0, err
 			} else {
 				elements = append(elements, e...)

@@ -66,8 +66,10 @@ func (s TextFormat) Apply(pdf fpdf.Pdf) {
 }
 
 type Styler interface {
-	Style(ast.Node, TextFormat) (BlockStyle, TextFormat)
+	Style(ast.Node) (BlockStyle, TextFormat)
 }
+
+var _ Styler = &DefaultStyler{}
 
 type DefaultStyler struct {
 	FontFamily string
@@ -75,7 +77,21 @@ type DefaultStyler struct {
 	Color      color.Color
 }
 
-func (s *DefaultStyler) Style(n ast.Node, format TextFormat) (BlockStyle, TextFormat) {
+func (s *DefaultStyler) Style(n ast.Node) (BlockStyle, TextFormat) {
+	ancestors := []ast.Node{}
+	for p := n; p != nil; p = p.Parent() {
+		ancestors = append(ancestors, p)
+	}
+
+	var bs BlockStyle
+	var tf TextFormat
+	for i := range ancestors {
+		bs, tf = s.style(ancestors[len(ancestors)-i-1], tf)
+	}
+	return bs, tf
+}
+
+func (s *DefaultStyler) style(n ast.Node, format TextFormat) (BlockStyle, TextFormat) {
 	style := BlockStyle{}
 
 	if format.FontFamily == "" {
@@ -120,9 +136,10 @@ func (s *DefaultStyler) Style(n ast.Node, format TextFormat) (BlockStyle, TextFo
 	case *xast.Strikethrough:
 		format.Strike = true
 	case *xast.TableHeader:
-		format.BackgroundColor = color.Gray{Y: 0x80}
+		style.BackgroundColor = color.Gray{Y: 0x80}
 	case *xast.TableCell:
-		format.Border = Border{Width: 1, Color: s.Color}
+		style.Border = Border{Width: 0.1, Color: color.RGBA{B: 0xFF, A: 0xFF}}
+		style.Padding = Spaces{Left: 10, Top: 10, Right: 10, Bottom: 10}
 	}
 	return style, format
 }

@@ -23,7 +23,7 @@ func (r *Renderer) renderBlockQuote(n *ast.Blockquote, borderBox RenderContext) 
 }
 
 func (r *Renderer) renderFencedCodeBlock(n *ast.FencedCodeBlock, borderBox RenderContext) (float64, error) {
-	_, tf := r.styler.Style(n, TextFormat{})
+	_, tf := r.styler.Style(n)
 
 	elements := []FlowElement{}
 	lines := n.Lines()
@@ -47,12 +47,12 @@ func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (flo
 
 		// 最初の要素の余白を考慮
 		if n.FirstChild() != nil {
-			bs, _ := r.styler.Style(n.FirstChild(), TextFormat{})
+			bs, _ := r.styler.Style(n.FirstChild())
 			borderBox.Y += bs.Margin.Top + bs.Border.Width + bs.Padding.Top
 		}
 
 		if ok && list.IsOrdered() {
-			_, tf := r.styler.Style(n, TextFormat{})
+			_, tf := r.styler.Style(n)
 			ts := &TextSpan{
 				Format: tf,
 				Text:   fmt.Sprintf("%d.", countPrevSiblings(n)+1),
@@ -68,7 +68,7 @@ func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (flo
 
 func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64, error) {
 	// TODO TableRow, TableCellのスタイル
-	bf, tf := r.styler.Style(n, TextFormat{})
+	bf, _ := r.styler.Style(n)
 
 	cellWidths := make([]float64, len(n.Alignments))
 
@@ -78,7 +78,7 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 		for col := row.FirstChild(); col != nil; col = col.NextSibling() {
 			elements := FlowElements{}
 			for c := col.FirstChild(); c != nil; c = c.NextSibling() {
-				e, err := r.getFlowElements(c, tf)
+				e, err := r.getFlowElements(c)
 				if err != nil {
 					return 0, err
 				}
@@ -102,10 +102,10 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 	totalWidth := 0.0
 	availableWidth := contentBox.W
 	if row := n.FirstChild(); row != nil {
-		bf, _ := r.styler.Style(row, TextFormat{})
+		bf, _ := r.styler.Style(row)
 		availableWidth -= bf.Border.Width*2 + bf.Padding.Horizontal()
 		if col := row.FirstChild(); col != nil {
-			bf, _ := r.styler.Style(col, TextFormat{})
+			bf, _ := r.styler.Style(col)
 			availableWidth -= (bf.Border.Width*2 + bf.Padding.Horizontal()) * float64(len(n.Alignments))
 		}
 	}
@@ -141,7 +141,7 @@ func (r *Renderer) renderTableRow(n ast.Node, borderBox RenderContext, cellWidth
 	cellBox := borderBox
 
 	for col := n.FirstChild(); col != nil; col = col.NextSibling() {
-		tf, _ := r.styler.Style(col, TextFormat{})
+		tf, _ := r.styler.Style(col)
 
 		cellBox.W = cellWidths[colIndex] + tf.Border.Width*2 + tf.Padding.Horizontal()
 

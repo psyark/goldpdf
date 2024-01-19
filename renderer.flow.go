@@ -8,12 +8,12 @@ import (
 )
 
 // getFlowElements は指定されたインラインノードとその全ての子孫ノードをFlowElementのフラットな配列として返します
-func (r *Renderer) getFlowElements(n ast.Node, tf TextFormat) (FlowElements, error) {
+func (r *Renderer) getFlowElements(n ast.Node) (FlowElements, error) {
 	if n.Type() != ast.TypeInline {
 		return nil, fmt.Errorf("getFlowElements has been called with a non-inline node: %s", n.Kind())
 	}
 
-	_, tf = r.styler.Style(n, tf)
+	_, tf := r.styler.Style(n)
 	elements := FlowElements{}
 
 	switch n := n.(type) {
@@ -40,7 +40,7 @@ func (r *Renderer) getFlowElements(n ast.Node, tf TextFormat) (FlowElements, err
 	}
 
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
-		e, err := r.getFlowElements(c, tf)
+		e, err := r.getFlowElements(c)
 		if err != nil {
 			return nil, err
 		}
