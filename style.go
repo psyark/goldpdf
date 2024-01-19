@@ -13,10 +13,18 @@ type Spaces struct {
 	Left, Top, Right, Bottom float64
 }
 
+func (s Spaces) Vertical() float64 {
+	return s.Top + s.Bottom
+}
+func (s Spaces) Horizontal() float64 {
+	return s.Left + s.Right
+}
+
 type BlockStyle struct {
 	Margin          Spaces
 	Padding         Spaces
 	BackgroundColor color.Color
+	Border          Border
 }
 
 type TextFormat struct {
@@ -99,10 +107,14 @@ func (s *DefaultStyler) Style(n ast.Node, format TextFormat) (BlockStyle, TextFo
 		default:
 			format.Italic = true
 		}
-	case *ast.FencedCodeBlock, *ast.CodeSpan:
-		format.Color = color.Black
+	case *ast.CodeSpan:
 		format.BackgroundColor = color.Gray{Y: 0xF2}
 		format.Border = Border{Width: 0.5, Color: color.Gray{Y: 0x99}, Radius: 3}
+	case *ast.FencedCodeBlock:
+		style.BackgroundColor = color.Gray{Y: 0xF2}
+		style.Margin = Spaces{Top: 10, Bottom: 10}
+		style.Border = Border{Width: 0.5, Color: color.Gray{Y: 0x99}, Radius: 3}
+		style.Padding = Spaces{Top: 10, Left: 10, Bottom: 10, Right: 10}
 	case *xast.Strikethrough:
 		format.Strike = true
 	case *xast.TableHeader:

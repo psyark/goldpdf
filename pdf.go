@@ -13,11 +13,14 @@ type PDF interface {
 	DrawTextSpan(x, y float64, span *TextSpan)
 	DrawImage(x, y float64, img *imageInfo)
 	DrawLine(x1, y1, x2, y2 float64, c color.Color, w float64)
+	DrawRect(x, y, w, h float64, bgColor color.Color, border Border)
 }
 
 type pdfImpl struct {
 	fpdf *fpdf.Fpdf
 }
+
+var _ PDF = &pdfImpl{}
 
 func (p *pdfImpl) GetSpanWidth(span *TextSpan) float64 {
 	p.applyTextFormat(span.Format)
@@ -32,22 +35,7 @@ func (p *pdfImpl) GetSubSpan(span *TextSpan, width float64) *TextSpan {
 
 func (p *pdfImpl) DrawTextSpan(x, y float64, span *TextSpan) {
 	sw := p.GetSpanWidth(span)
-
-	if span.Format.BackgroundColor != nil {
-		if _, _, _, ca := span.Format.BackgroundColor.RGBA(); ca != 0 {
-			p.fpdf.SetFillColor(p.colorHelper(span.Format.BackgroundColor))
-			p.fpdf.RoundedRect(x, y, sw, span.Format.FontSize, span.Format.Border.Radius, "1234", "F")
-		}
-	}
-
-	if span.Format.Border.Color != nil && span.Format.Border.Width != 0 {
-		if _, _, _, ca := span.Format.Border.Color.RGBA(); ca != 0 {
-			p.fpdf.SetLineWidth(span.Format.Border.Width)
-			p.fpdf.SetDrawColor(p.colorHelper(span.Format.Border.Color))
-			p.fpdf.RoundedRect(x, y, sw, span.Format.FontSize, span.Format.Border.Radius, "1234", "D")
-		}
-	}
-
+	p.DrawRect(x, y, sw, span.Format.FontSize, span.Format.BackgroundColor, span.Format.Border)
 	p.applyTextFormat(span.Format)
 	p.fpdf.Text(x, y+span.Format.FontSize, span.Text)
 }
@@ -62,6 +50,22 @@ func (p *pdfImpl) DrawLine(x1, y1, x2, y2 float64, c color.Color, w float64) {
 		p.fpdf.SetLineWidth(w)
 		p.fpdf.SetDrawColor(p.colorHelper(c))
 		p.fpdf.Line(x1, y1, x2, y2)
+	}
+}
+
+func (p *pdfImpl) DrawRect(x, y, w, h float64, bgColor color.Color, border Border) {
+	if bgColor != nil {
+		if _, _, _, ca := bgColor.RGBA(); ca != 0 {
+			p.fpdf.SetFillColor(p.colorHelper(bgColor))
+			p.fpdf.RoundedRect(x, y, w, h, border.Radius, "1234", "F")
+		}
+	}
+	if border.Color != nil && border.Width != 0 {
+		if _, _, _, ca := border.Color.RGBA(); ca != 0 {
+			p.fpdf.SetLineWidth(border.Width)
+			p.fpdf.SetDrawColor(p.colorHelper(border.Color))
+			p.fpdf.RoundedRect(x+border.Width/2, y+border.Width/2, w-border.Width, h-border.Width, border.Radius, "1234", "D")
+		}
 	}
 }
 

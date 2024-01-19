@@ -30,6 +30,11 @@ func (rc RenderContext) Extend(dx, dy, dw float64) RenderContext {
 	return rc
 }
 
+func (rc RenderContext) InPreflight() RenderContext {
+	rc.Preflight = true
+	return rc
+}
+
 // renderBlockNode はブロックノード（またはドキュメントノード）を描画し、その高さを返します
 // drawが偽のとき、描画は行わずにサイズだけを返します
 func (r *Renderer) renderBlockNode(n ast.Node, rc RenderContext) (float64, error) {
@@ -38,10 +43,12 @@ func (r *Renderer) renderBlockNode(n ast.Node, rc RenderContext) (float64, error
 	}
 
 	switch n := n.(type) {
-	case *ast.ThematicBreak:
-		return r.drawThematicBreak(n, rc)
 	case *ast.Blockquote:
-		return r.drawBlockQuote(n, rc)
+		return r.renderBlockQuote(n, rc)
+	case *ast.FencedCodeBlock:
+		return r.renderFencedCodeBlock(n, rc)
+	case *ast.ThematicBreak:
+		return r.renderThematicBreak(n, rc)
 	default:
 		return r.renderGenericBlockNode(n, rc)
 	}
