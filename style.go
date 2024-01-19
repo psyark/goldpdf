@@ -70,12 +70,17 @@ type DefaultStyler struct {
 func (s *DefaultStyler) Style(n ast.Node, format TextFormat) (BlockStyle, TextFormat) {
 	style := BlockStyle{}
 
-	switch n := n.(type) {
-	case *ast.Document:
+	if format.FontFamily == "" {
 		format.FontFamily = s.FontFamily
+	}
+	if format.FontSize == 0 {
 		format.FontSize = s.FontSize
+	}
+	if format.Color == nil {
 		format.Color = s.Color
-		format.BackgroundColor = nil
+	}
+
+	switch n := n.(type) {
 	case *ast.Heading:
 		format.FontSize = s.FontSize * math.Pow(1.15, float64(7-n.Level))
 		style.Margin = Spaces{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
