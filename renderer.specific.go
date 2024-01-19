@@ -42,6 +42,13 @@ func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (flo
 
 	if !borderBox.Preflight {
 		list, ok := n.Parent().(*ast.List)
+
+		// 最初の要素の余白を考慮
+		if n.FirstChild() != nil {
+			bs, _ := r.styler.Style(n.FirstChild(), TextFormat{})
+			borderBox.Y += bs.Margin.Top + bs.Border.Width + bs.Padding.Top
+		}
+
 		if ok && list.IsOrdered() {
 			index := 0
 			for x := n.PreviousSibling(); x != nil; x = x.PreviousSibling() {

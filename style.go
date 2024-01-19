@@ -97,6 +97,8 @@ func (s *DefaultStyler) Style(n ast.Node, format TextFormat) (BlockStyle, TextFo
 	case *ast.Blockquote:
 		style.Padding = Spaces{Left: 10}
 		style.Margin = Spaces{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
+	case *ast.List:
+		style.Margin = Spaces{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
 	case *ast.Link, *ast.AutoLink:
 		format.Color = color.RGBA{B: 0xFF, A: 0xFF}
 		format.Underline = true
