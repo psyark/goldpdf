@@ -33,7 +33,7 @@ func (r *Renderer) renderFencedCodeBlock(n *ast.FencedCodeBlock, borderBox Rende
 		elements = append(elements, ts, &HardBreak{})
 	}
 
-	return r.renderGenericBlockNode(n, borderBox, elements...)
+	return r.renderGenericBlockNode(n, borderBox.WithFlowElements(elements))
 }
 
 func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (float64, error) {
@@ -52,15 +52,10 @@ func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (flo
 		}
 
 		if ok && list.IsOrdered() {
-			index := 0
-			for x := n.PreviousSibling(); x != nil; x = x.PreviousSibling() {
-				index++
-			}
-
 			_, tf := r.styler.Style(n, TextFormat{})
 			ts := &TextSpan{
 				Format: tf,
-				Text:   fmt.Sprintf("%d.", index+1),
+				Text:   fmt.Sprintf("%d.", countPrevSiblings(n)+1),
 			}
 			borderBox.Target.DrawTextSpan(borderBox.X, borderBox.Y, ts)
 		} else {
@@ -73,7 +68,7 @@ func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (flo
 
 func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64, error) {
 	// TODO TableRow, TableCellのスタイル
-	_, tf := r.styler.Style(n, TextFormat{})
+	bf, tf := r.styler.Style(n, TextFormat{})
 
 	cellWidths := make([]float64, len(n.Alignments))
 
@@ -98,48 +93,67 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 		}
 	}
 
+	contentBox := borderBox.Extend(
+		bf.Border.Width,
+		bf.Border.Width,
+		-bf.Border.Width*2,
+	)
+
 	totalWidth := 0.0
+	availableWidth := contentBox.W
+	if row := n.FirstChild(); row != nil {
+		bf, _ := r.styler.Style(row, TextFormat{})
+		availableWidth -= bf.Border.Width*2 + bf.Padding.Horizontal()
+		if col := row.FirstChild(); col != nil {
+			bf, _ := r.styler.Style(col, TextFormat{})
+			availableWidth -= (bf.Border.Width*2 + bf.Padding.Horizontal()) * float64(len(n.Alignments))
+		}
+	}
+
 	for _, w := range cellWidths {
 		totalWidth += w
 	}
-	if totalWidth > borderBox.W {
+	if totalWidth > availableWidth {
 		for i := range cellWidths {
-			cellWidths[i] *= borderBox.W / totalWidth
+			cellWidths[i] *= availableWidth / totalWidth
 		}
 	}
 
 	height := 0.0
 	for row := n.FirstChild(); row != nil; row = row.NextSibling() {
-		colIndex := 0
-
-		rowHeight := 0.0
-
-		cellBox := borderBox
-		cellBox.Y = borderBox.Y + height
-
-		for col := row.FirstChild(); col != nil; col = col.NextSibling() {
-			elements := FlowElements{}
-			for c := col.FirstChild(); c != nil; c = c.NextSibling() {
-				e, err := r.getFlowElements(c, tf)
-				if err != nil {
-					return 0, err
-				}
-				elements = append(elements, e...)
-			}
-
-			cellBox.W = cellWidths[colIndex]
-
-			h, err := r.renderFlowElements(elements, cellBox)
+		switch row := row.(type) {
+		case *xast.TableHeader, *xast.TableRow:
+			h, err := r.renderTableRow(row, borderBox.Extend(0, height, 0), cellWidths)
 			if err != nil {
 				return 0, err
 			}
-			rowHeight = math.Max(rowHeight, h)
+			height += h
+		}
+	}
 
-			cellBox.X += cellWidths[colIndex]
-			colIndex++
+	return height, nil
+}
+
+func (r *Renderer) renderTableRow(n ast.Node, borderBox RenderContext, cellWidths []float64) (float64, error) {
+	colIndex := 0
+	height := 0.0
+
+	cellBox := borderBox
+
+	for col := n.FirstChild(); col != nil; col = col.NextSibling() {
+		tf, _ := r.styler.Style(col, TextFormat{})
+
+		cellBox.W = cellWidths[colIndex] + tf.Border.Width*2 + tf.Padding.Horizontal()
+
+		h, err := r.renderBlockNode(col, cellBox)
+		if err != nil {
+			return 0, err
 		}
 
-		height += rowHeight
+		height = math.Max(height, h)
+
+		cellBox.X += cellBox.W
+		colIndex++
 	}
 
 	return height, nil
@@ -150,4 +164,12 @@ func (r *Renderer) renderThematicBreak(n *ast.ThematicBreak, borderBox RenderCon
 		borderBox.Target.DrawLine(borderBox.X, borderBox.Y+20, borderBox.X+borderBox.W, borderBox.Y+20, color.Gray{Y: 0x80}, 2)
 	}
 	return 40, nil
+}
+
+func countPrevSiblings(n ast.Node) int {
+	c := 0
+	for x := n.PreviousSibling(); x != nil; x = x.PreviousSibling() {
+		c++
+	}
+	return c
 }

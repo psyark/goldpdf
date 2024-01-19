@@ -18,24 +18,6 @@ type Renderer struct {
 	imageLoader imageLoader
 }
 
-type RenderContext struct {
-	X, Y, W   float64
-	Preflight bool
-	Target    PDF
-}
-
-func (rc RenderContext) Extend(dx, dy, dw float64) RenderContext {
-	rc.X += dx
-	rc.Y += dy
-	rc.W += dw
-	return rc
-}
-
-func (rc RenderContext) InPreflight() RenderContext {
-	rc.Preflight = true
-	return rc
-}
-
 // renderBlockNode draws a block node (or document node) inside a borderBox
 // and returns the height of its border box.
 func (r *Renderer) renderBlockNode(n ast.Node, borderBox RenderContext) (float64, error) {
@@ -61,11 +43,11 @@ func (r *Renderer) renderBlockNode(n ast.Node, borderBox RenderContext) (float64
 
 // renderGenericBlockNode provides basic rendering for all block nodes
 // except specific block nodes.
-func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext, additionalElements ...FlowElement) (float64, error) {
+func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext) (float64, error) {
 	bs, tf := r.styler.Style(n, TextFormat{})
 
 	if !borderBox.Preflight {
-		h, err := r.renderGenericBlockNode(n, borderBox.InPreflight(), additionalElements...)
+		h, err := r.renderGenericBlockNode(n, borderBox.InPreflight())
 		if err != nil {
 			return 0, err
 		}
@@ -79,6 +61,8 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext, a
 		)
 	}
 
+	// FlowElementsは子孫に渡さない
+	elements, borderBox := borderBox.FlowElements, borderBox.WithFlowElements(nil)
 	contentBox := borderBox.Extend(
 		bs.Border.Width+bs.Padding.Left,
 		bs.Border.Width+bs.Padding.Top,
@@ -86,7 +70,6 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext, a
 	)
 
 	height := bs.Border.Width + bs.Padding.Top
-	elements := additionalElements
 
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
 		switch c.Type() {
