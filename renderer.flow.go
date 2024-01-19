@@ -29,8 +29,9 @@ func (r *Renderer) getFlowElements(n ast.Node, tf TextFormat) ([]FlowElement, er
 	case *ast.Image:
 		info := r.imageLoader.load(string(n.Destination))
 		if info != nil {
-			// TODO リンク切れ
+			// If the image can be retrieved, ignore descendants (alt text).
 			elements = append(elements, &Image{Info: info})
+			return elements, nil
 		}
 
 	case *ast.Emphasis, *ast.Link, *ast.CodeSpan, *xast.Strikethrough:
