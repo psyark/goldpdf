@@ -51,24 +51,24 @@ func (r *Renderer) getFlowElements(n ast.Node, tf TextFormat) ([]FlowElement, er
 // renderFlowElements はテキストフローを描画し、そのサイズを返します
 // drawが偽のとき、描画は行わずにサイズだけを返します
 // TODO ベースラインで揃える
-func (r *Renderer) renderFlowElements(elements FlowElements, draw bool, rs RenderState) (float64, error) {
+func (r *Renderer) renderFlowElements(elements FlowElements, rc RenderContext) (float64, error) {
 	height := 0.0
 	for !elements.IsEmpty() {
-		line, lineHeight := elements.GetLine(r.pdf, rs.W)
+		line, lineHeight := elements.GetLine(rc.Target, rc.W)
 		if len(line) == 0 {
 			break
 		}
 
-		if draw {
-			x := rs.X
-			y := rs.Y + height
+		if !rc.Preflight {
+			x := rc.X
+			y := rc.Y + height
 			for _, e := range line {
 				switch e := e.(type) {
 				case *TextSpan:
-					r.pdf.DrawTextSpan(x, y, e)
-					x += r.pdf.GetSpanWidth(e)
+					rc.Target.DrawTextSpan(x, y, e)
+					x += rc.Target.GetSpanWidth(e)
 				case *Image:
-					r.pdf.DrawImage(x, y, e.Info)
+					rc.Target.DrawImage(x, y, e.Info)
 					x += float64(e.Info.Width)
 				default:
 					return 0, fmt.Errorf("unsupported element: %v", e)
