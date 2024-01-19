@@ -12,6 +12,7 @@ type PDF interface {
 	GetSubSpan(span *TextSpan, width float64) *TextSpan
 	DrawTextSpan(x, y float64, span *TextSpan)
 	DrawImage(x, y float64, img *imageInfo)
+	DrawBullet(x, y float64, c color.Color, r float64)
 	DrawLine(x1, y1, x2, y2 float64, c color.Color, w float64)
 	DrawRect(x, y, w, h float64, bgColor color.Color, border Border)
 }
@@ -43,6 +44,13 @@ func (p *pdfImpl) DrawTextSpan(x, y float64, span *TextSpan) {
 func (p *pdfImpl) DrawImage(x, y float64, img *imageInfo) {
 	p.fpdf.RegisterImageOptionsReader(img.Name, fpdf.ImageOptions{ImageType: img.Type}, bytes.NewReader(img.Data))
 	p.fpdf.ImageOptions(img.Name, x, y, float64(img.Width), float64(img.Height), false, fpdf.ImageOptions{}, 0, "")
+}
+
+func (p *pdfImpl) DrawBullet(x, y float64, c color.Color, r float64) {
+	if _, _, _, ca := c.RGBA(); ca != 0 && r != 0 {
+		p.fpdf.SetFillColor(p.colorHelper(c))
+		p.fpdf.Circle(x, y, r, "F")
+	}
 }
 
 func (p *pdfImpl) DrawLine(x1, y1, x2, y2 float64, c color.Color, w float64) {
