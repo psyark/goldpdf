@@ -9,6 +9,12 @@ import (
 	xast "github.com/yuin/goldmark/extension/ast"
 )
 
+type columnFormat struct {
+	contentWidth float64
+	alignment    xast.Alignment
+}
+
+// TODO スタイルで実装する
 func (r *Renderer) renderBlockQuote(n *ast.Blockquote, borderBox RenderContext) (float64, error) {
 	h, err := r.renderGenericBlockNode(n, borderBox.Extend(6, 0, -6))
 	if err != nil {
@@ -70,7 +76,7 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 	// TODO TableRow, TableCellのスタイル
 	bf, _ := r.styler.Style(n)
 
-	cellWidths := make([]float64, len(n.Alignments))
+	columnContentWidths := make([]float64, len(n.Alignments))
 
 	// TODO TableRow, TableCellの余白やボーダー幅の考慮
 	for row := n.FirstChild(); row != nil; row = row.NextSibling() {
@@ -85,75 +91,78 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 				elements = append(elements, e...)
 			}
 
-			cellWidths[colIndex] = math.Max(
-				cellWidths[colIndex],
+			columnContentWidths[colIndex] = math.Max(
+				columnContentWidths[colIndex],
 				borderBox.Target.GetNaturalWidth(elements),
 			)
 			colIndex++
 		}
 	}
 
-	contentBox := borderBox.Extend(
-		bf.Border.Width,
-		bf.Border.Width,
-		-bf.Border.Width*2,
-	)
+	contentBox := borderBox.Shrink(bf.Border, bf.Padding)
 
 	totalWidth := 0.0
 	availableWidth := contentBox.W
 	if row := n.FirstChild(); row != nil {
+		// TableHeaderの水平成分を減らす
 		bf, _ := r.styler.Style(row)
-		availableWidth -= bf.Border.Width*2 + bf.Padding.Horizontal()
+		availableWidth -= horizontal(bf.Border) + horizontal(bf.Padding)
 		if col := row.FirstChild(); col != nil {
+			// TableCellの水平成分を減らす
 			bf, _ := r.styler.Style(col)
-			availableWidth -= (bf.Border.Width*2 + bf.Padding.Horizontal()) * float64(len(n.Alignments))
+			availableWidth -= (horizontal(bf.Border) + horizontal(bf.Padding)) * float64(len(n.Alignments))
 		}
 	}
 
-	for _, w := range cellWidths {
+	for _, w := range columnContentWidths {
 		totalWidth += w
 	}
+	// 列の最大幅がavailableWidthを超過するなら
 	if totalWidth > availableWidth {
-		for i := range cellWidths {
-			cellWidths[i] *= availableWidth / totalWidth
+		// 列の最大幅を均等倍率で縮小する
+		for i := range columnContentWidths {
+			columnContentWidths[i] *= availableWidth / totalWidth
 		}
 	}
 
-	height := 0.0
+	height := top(bf.Border) + top(bf.Padding)
 	for row := n.FirstChild(); row != nil; row = row.NextSibling() {
 		switch row := row.(type) {
 		case *xast.TableHeader, *xast.TableRow:
-			h, err := r.renderTableRow(row, borderBox.Extend(0, height, 0), cellWidths)
+			h, err := r.renderTableRow(row, contentBox.Extend(0, height, 0), columnContentWidths)
 			if err != nil {
 				return 0, err
 			}
 			height += h
 		}
 	}
+	height += bottom(bf.Border) + bottom(bf.Padding)
 
 	return height, nil
 }
 
-func (r *Renderer) renderTableRow(n ast.Node, borderBox RenderContext, cellWidths []float64) (float64, error) {
-	colIndex := 0
-	height := 0.0
+func (r *Renderer) renderTableRow(n ast.Node, borderBox RenderContext, columnContentWidths []float64) (float64, error) {
+	switch n.Kind() {
+	case xast.KindTableHeader, xast.KindTableRow:
+	default:
+		return 0, fmt.Errorf("unsupported kind: %v", n.Kind())
+	}
 
+	// TODO 背景色
+	height := 0.0
 	cellBox := borderBox
 
-	for col := n.FirstChild(); col != nil; col = col.NextSibling() {
-		tf, _ := r.styler.Style(col)
+	for cell := n.FirstChild(); cell != nil; cell = cell.NextSibling() {
+		tf, _ := r.styler.Style(cell)
+		cellBox.W = columnContentWidths[countPrevSiblings(cell)] + horizontal(tf.Border) + horizontal(tf.Padding)
 
-		cellBox.W = cellWidths[colIndex] + tf.Border.Width*2 + tf.Padding.Horizontal()
-
-		h, err := r.renderBlockNode(col, cellBox)
+		h, err := r.renderBlockNode(cell, cellBox)
 		if err != nil {
 			return 0, err
 		}
 
 		height = math.Max(height, h)
-
 		cellBox.X += cellBox.W
-		colIndex++
 	}
 
 	return height, nil

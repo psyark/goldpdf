@@ -63,11 +63,7 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext) (
 
 	// FlowElementsは子孫に渡さない
 	elements, borderBox := borderBox.FlowElements, borderBox.WithFlowElements(nil)
-	contentBox := borderBox.Extend(
-		bs.Border.Width+bs.Padding.Left,
-		bs.Border.Width+bs.Padding.Top,
-		-bs.Border.Width*2-bs.Padding.Horizontal(),
-	)
+	contentBox := borderBox.Shrink(bs.Border, bs.Padding)
 
 	height := bs.Border.Width + bs.Padding.Top
 

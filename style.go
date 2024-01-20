@@ -9,22 +9,11 @@ import (
 	xast "github.com/yuin/goldmark/extension/ast"
 )
 
-type Spaces struct {
-	Left, Top, Right, Bottom float64
-}
-
-func (s Spaces) Vertical() float64 {
-	return s.Top + s.Bottom
-}
-func (s Spaces) Horizontal() float64 {
-	return s.Left + s.Right
-}
-
 type BlockStyle struct {
-	Margin          Spaces
-	Padding         Spaces
+	Margin          Spacing
+	Padding         Spacing
 	BackgroundColor color.Color
-	Border          Border
+	Border          UniformBorder // TODO Borderに
 }
 
 type TextFormat struct {
@@ -36,13 +25,7 @@ type TextFormat struct {
 	Italic          bool
 	Strike          bool
 	Underline       bool
-	Border          Border
-}
-
-type Border struct {
-	Width  float64
-	Color  color.Color
-	Radius float64
+	Border          UniformBorder
 }
 
 func (s TextFormat) Apply(pdf fpdf.Pdf) {
@@ -107,14 +90,14 @@ func (s *DefaultStyler) style(n ast.Node, format TextFormat) (BlockStyle, TextFo
 	switch n := n.(type) {
 	case *ast.Heading:
 		format.FontSize = s.FontSize * math.Pow(1.15, float64(7-n.Level))
-		style.Margin = Spaces{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
+		style.Margin = Spacing{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
 	case *ast.Paragraph:
-		style.Margin = Spaces{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
+		style.Margin = Spacing{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
 	case *ast.Blockquote:
-		style.Padding = Spaces{Left: 10}
-		style.Margin = Spaces{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
+		style.Padding = Spacing{Left: 10}
+		style.Margin = Spacing{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
 	case *ast.List:
-		style.Margin = Spaces{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
+		style.Margin = Spacing{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
 	case *ast.Link, *ast.AutoLink:
 		format.Color = color.RGBA{B: 0xFF, A: 0xFF}
 		format.Underline = true
@@ -127,19 +110,19 @@ func (s *DefaultStyler) style(n ast.Node, format TextFormat) (BlockStyle, TextFo
 		}
 	case *ast.CodeSpan:
 		format.BackgroundColor = color.Gray{Y: 0xF2}
-		format.Border = Border{Width: 0.5, Color: color.Gray{Y: 0x99}, Radius: 3}
+		format.Border = UniformBorder{Width: 0.5, Color: color.Gray{Y: 0x99}, Radius: 3}
 	case *ast.FencedCodeBlock:
 		style.BackgroundColor = color.Gray{Y: 0xF2}
-		style.Margin = Spaces{Top: 10, Bottom: 10}
-		style.Border = Border{Width: 0.5, Color: color.Gray{Y: 0x99}, Radius: 3}
-		style.Padding = Spaces{Top: 10, Left: 10, Bottom: 10, Right: 10}
+		style.Margin = Spacing{Top: 10, Bottom: 10}
+		style.Border = UniformBorder{Width: 0.5, Color: color.Gray{Y: 0x99}, Radius: 3}
+		style.Padding = Spacing{Top: 10, Left: 10, Bottom: 10, Right: 10}
 	case *xast.Strikethrough:
 		format.Strike = true
 	case *xast.TableHeader:
 		style.BackgroundColor = color.Gray{Y: 0x80}
 	case *xast.TableCell:
-		style.Border = Border{Width: 0.1, Color: color.RGBA{B: 0xFF, A: 0xFF}}
-		style.Padding = Spaces{Left: 10, Top: 10, Right: 10, Bottom: 10}
+		style.Border = UniformBorder{Width: 0.1, Color: color.RGBA{B: 0xFF, A: 0xFF}}
+		style.Padding = Spacing{Left: 10, Top: 10, Right: 10, Bottom: 10}
 	}
 	return style, format
 }

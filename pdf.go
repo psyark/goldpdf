@@ -16,7 +16,7 @@ type PDF interface {
 	DrawImage(x, y float64, img *imageInfo)
 	DrawBullet(x, y float64, c color.Color, r float64)
 	DrawLine(x1, y1, x2, y2 float64, c color.Color, w float64)
-	DrawRect(x, y, w, h float64, bgColor color.Color, border Border)
+	DrawRect(x, y, w, h float64, bgColor color.Color, border UniformBorder)
 }
 
 type pdfImpl struct {
@@ -82,7 +82,7 @@ func (p *pdfImpl) DrawLine(x1, y1, x2, y2 float64, c color.Color, w float64) {
 	}
 }
 
-func (p *pdfImpl) DrawRect(x, y, w, h float64, bgColor color.Color, border Border) {
+func (p *pdfImpl) DrawRect(x, y, w, h float64, bgColor color.Color, border UniformBorder) {
 	if bgColor != nil {
 		if _, _, _, ca := bgColor.RGBA(); ca != 0 {
 			p.fpdf.SetFillColor(p.colorHelper(bgColor))
