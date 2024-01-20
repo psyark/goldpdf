@@ -14,7 +14,7 @@ func (r *Renderer) getFlowElements(n ast.Node) ([]FlowElement, error) {
 		return nil, fmt.Errorf("getFlowElements has been called with a non-inline node: %s", n.Kind())
 	}
 
-	_, tf := r.styler.Style(n)
+	_, tf := r.style(n)
 	elements := []FlowElement{}
 
 	switch n := n.(type) {

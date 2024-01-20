@@ -14,7 +14,7 @@ type columnFormat struct {
 }
 
 func (r *Renderer) renderFencedCodeBlock(n *ast.FencedCodeBlock, borderBox RenderContext) (float64, error) {
-	_, tf := r.styler.Style(n)
+	_, tf := r.style(n)
 
 	elements := []FlowElement{}
 	lines := n.Lines()
@@ -38,12 +38,12 @@ func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (flo
 
 		// 最初の要素の余白を考慮
 		if n.FirstChild() != nil {
-			bs, _ := r.styler.Style(n.FirstChild())
+			bs, _ := r.style(n.FirstChild())
 			borderBox.Y += top(bs.Margin) + top(bs.Border) + top(bs.Padding)
 		}
 
 		if ok && list.IsOrdered() {
-			_, tf := r.styler.Style(n)
+			_, tf := r.style(n)
 			ts := &TextSpan{
 				Format: tf,
 				Text:   fmt.Sprintf("%d.", countPrevSiblings(n)+1),
@@ -59,7 +59,7 @@ func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (flo
 
 func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64, error) {
 	// TODO TableRow, TableCellのスタイル
-	bf, _ := r.styler.Style(n)
+	bf, _ := r.style(n)
 
 	columnFormats := make([]columnFormat, len(n.Alignments))
 
@@ -88,11 +88,11 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 	availableWidth := contentBox.W
 	if row := n.FirstChild(); row != nil {
 		// TableHeaderの水平成分を減らす
-		bf, _ := r.styler.Style(row)
+		bf, _ := r.style(row)
 		availableWidth -= horizontal(bf.Border) + horizontal(bf.Padding)
 		if col := row.FirstChild(); col != nil {
 			// TableCellの水平成分を減らす
-			bf, _ := r.styler.Style(col)
+			bf, _ := r.style(col)
 			availableWidth -= (horizontal(bf.Border) + horizontal(bf.Padding)) * float64(len(n.Alignments))
 		}
 	}
@@ -131,7 +131,7 @@ func (r *Renderer) renderTableRow(n ast.Node, borderBox RenderContext, columnFor
 		return 0, fmt.Errorf("unsupported kind: %v", n.Kind())
 	}
 
-	bs, _ := r.styler.Style(n)
+	bs, _ := r.style(n)
 
 	options := &rgbnOption{}
 	if !borderBox.Preflight {
@@ -148,7 +148,7 @@ func (r *Renderer) renderTableRow(n ast.Node, borderBox RenderContext, columnFor
 	height := top(bs.Border) + top(bs.Padding)
 
 	for cell := n.FirstChild(); cell != nil; cell = cell.NextSibling() {
-		tf, _ := r.styler.Style(cell)
+		tf, _ := r.style(cell)
 		borderBox.W = columnFormats[countPrevSiblings(cell)].contentWidth + horizontal(tf.Border) + horizontal(tf.Padding)
 
 		h, err := r.renderGenericBlockNode(cell, borderBox, options)

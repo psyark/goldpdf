@@ -4,7 +4,6 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/jung-kurt/gofpdf"
 	"github.com/yuin/goldmark/ast"
 	xast "github.com/yuin/goldmark/extension/ast"
 )
@@ -29,28 +28,8 @@ type TextFormat struct {
 	Border          UniformBorder
 }
 
-func (s TextFormat) Apply(pdf gofpdf.Fpdf) {
-	fontStyle := ""
-	if s.Bold {
-		fontStyle += "B"
-	}
-	if s.Italic {
-		fontStyle += "I"
-	}
-	if s.Strike {
-		fontStyle += "S"
-	}
-	if s.Underline {
-		fontStyle += "U"
-	}
-	pdf.SetFont(s.FontFamily, fontStyle, s.FontSize)
-	cr, cg, cb, _ := s.Color.RGBA()
-	pdf.SetTextColor(int(cr>>8), int(cg>>8), int(cb>>8))
-	pdf.SetAlpha(1, "")
-}
-
 type Styler interface {
-	Style(ast.Node) (BlockStyle, TextFormat)
+	Style(ast.Node, TextFormat) (BlockStyle, TextFormat)
 }
 
 var _ Styler = &DefaultStyler{}
@@ -61,83 +40,67 @@ type DefaultStyler struct {
 	Color      color.Color
 }
 
-func (s *DefaultStyler) Style(n ast.Node) (BlockStyle, TextFormat) {
-	ancestors := []ast.Node{}
-	for p := n; p != nil; p = p.Parent() {
-		ancestors = append(ancestors, p)
-	}
-
-	var bs BlockStyle
-	var tf TextFormat
-	for i := range ancestors {
-		bs, tf = s.style(ancestors[len(ancestors)-i-1], tf)
-	}
-	return bs, tf
-}
-
-func (s *DefaultStyler) style(n ast.Node, format TextFormat) (BlockStyle, TextFormat) {
-	style := BlockStyle{
-		TextAlign: xast.AlignNone,
-	}
+func (s *DefaultStyler) Style(n ast.Node, tf TextFormat) (BlockStyle, TextFormat) {
+	bs := BlockStyle{TextAlign: xast.AlignNone}
 
 	switch n := n.(type) {
 	case *ast.Document:
-		format.FontFamily = s.FontFamily
-		format.FontSize = s.FontSize
-		format.Color = s.Color
+		tf.FontFamily = s.FontFamily
+		tf.FontSize = s.FontSize
+		tf.Color = s.Color
 	case *ast.Heading:
-		format.FontSize = s.FontSize * math.Pow(1.15, float64(7-n.Level))
-		style.Margin = Spacing{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
+		tf.FontSize = s.FontSize * math.Pow(1.15, float64(7-n.Level))
+		bs.Margin = Spacing{Top: tf.FontSize / 2, Bottom: tf.FontSize / 2}
 	case *ast.Paragraph:
-		style.Margin = Spacing{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
+		bs.Margin = Spacing{Top: tf.FontSize / 2, Bottom: tf.FontSize / 2}
 	case *ast.Blockquote:
-		style.Padding = Spacing{Left: 10}
-		style.Margin = Spacing{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
-		style.Border = IndividualBorder{
+		bs.Padding = Spacing{Left: 10}
+		bs.Margin = Spacing{Top: tf.FontSize / 2, Bottom: tf.FontSize / 2}
+		bs.Border = IndividualBorder{
 			Left: BorderEdge{Color: color.Gray{Y: 0x80}, Width: 6},
 		}
 	case *ast.List:
-		style.Margin = Spacing{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
+		bs.Margin = Spacing{Top: tf.FontSize / 2, Bottom: tf.FontSize / 2}
 	case *ast.Link, *ast.AutoLink:
-		format.Color = color.RGBA{B: 0xFF, A: 0xFF}
-		format.Underline = true
+		tf.Color = color.RGBA{B: 0xFF, A: 0xFF}
+		tf.Underline = true
 	case *ast.Emphasis:
 		switch n.Level {
 		case 2:
-			format.Bold = true
+			tf.Bold = true
 		default:
-			format.Italic = true
+			tf.Italic = true
 		}
 	case *ast.CodeSpan:
-		format.BackgroundColor = color.Gray{Y: 0xF2}
-		format.Border = UniformBorder{Width: 0.5, Color: color.Gray{Y: 0x99}, Radius: 3}
+		tf.BackgroundColor = color.Gray{Y: 0xF2}
+		tf.Border = UniformBorder{Width: 0.5, Color: color.Gray{Y: 0x99}, Radius: 3}
 	case *ast.FencedCodeBlock:
-		style.BackgroundColor = color.Gray{Y: 0xF2}
-		style.Margin = Spacing{Top: 10, Bottom: 10}
-		style.Border = UniformBorder{Width: 0.5, Color: color.Gray{Y: 0x99}, Radius: 3}
-		style.Padding = Spacing{Top: 10, Left: 10, Bottom: 10, Right: 10}
+		bs.BackgroundColor = color.Gray{Y: 0xF2}
+		bs.Margin = Spacing{Top: 10, Bottom: 10}
+		bs.Border = UniformBorder{Width: 0.5, Color: color.Gray{Y: 0x99}, Radius: 3}
+		bs.Padding = Spacing{Top: 10, Left: 10, Bottom: 10, Right: 10}
 	case *xast.Strikethrough:
-		format.Strike = true
+		tf.Strike = true
 	case *xast.Table:
-		style.Margin = Spacing{Top: 10, Bottom: 10}
+		bs.Margin = Spacing{Top: 10, Bottom: 10}
 	case *xast.TableHeader:
-		format.Bold = true
+		tf.Bold = true
 	case *xast.TableRow:
 		edgeColor := color.Gray{Y: uint8(255 * 0.8)}
 		if _, ok := n.PreviousSibling().(*xast.TableHeader); ok {
 			edgeColor.Y = uint8(255 * 0.2)
 		}
-		style.Border = IndividualBorder{
+		bs.Border = IndividualBorder{
 			Top: BorderEdge{Color: edgeColor, Width: 0.5},
 		}
 	case *xast.TableCell:
-		style.Padding = Spacing{Left: 10, Top: 10, Right: 10, Bottom: 10}
+		bs.Padding = Spacing{Left: 10, Top: 10, Right: 10, Bottom: 10}
 		colIndex := countPrevSiblings(n)
 		if tr := n.Parent(); tr != nil {
 			if table, ok := tr.Parent().(*xast.Table); ok {
-				style.TextAlign = table.Alignments[colIndex]
+				bs.TextAlign = table.Alignments[colIndex]
 			}
 		}
 	}
-	return style, format
+	return bs, tf
 }
