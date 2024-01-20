@@ -33,8 +33,6 @@ func (r *Renderer) renderBlockNode(n ast.Node, borderBox RenderContext) (float64
 		return r.renderFencedCodeBlock(n, borderBox)
 	case *ast.ListItem:
 		return r.renderListItem(n, borderBox)
-	case *ast.ThematicBreak:
-		return r.renderThematicBreak(n, borderBox)
 	case *xast.Table:
 		return r.renderTable(n, borderBox)
 	default:

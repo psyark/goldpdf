@@ -79,6 +79,11 @@ func (s *DefaultStyler) Style(n ast.Node, tf TextFormat) (BlockStyle, TextFormat
 		bs.Margin = Spacing{Top: 10, Bottom: 10}
 		bs.Border = UniformBorder{Width: 0.5, Color: color.Gray{Y: 0x99}, Radius: 3}
 		bs.Padding = Spacing{Top: 10, Left: 10, Bottom: 10, Right: 10}
+	case *ast.ThematicBreak:
+		bs.Margin = Spacing{Top: 19, Bottom: 19}
+		bs.Border = IndividualBorder{
+			Top: BorderEdge{Width: 2, Color: color.Gray{Y: 0x80}},
+		}
 	case *xast.Strikethrough:
 		tf.Strike = true
 	case *xast.Table:

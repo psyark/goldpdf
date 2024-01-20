@@ -164,13 +164,6 @@ func (r *Renderer) renderTableRow(n ast.Node, borderBox RenderContext, columnFor
 	return height, nil
 }
 
-func (r *Renderer) renderThematicBreak(n *ast.ThematicBreak, borderBox RenderContext) (float64, error) {
-	if !borderBox.Preflight {
-		borderBox.Target.DrawLine(borderBox.X, borderBox.Y+20, borderBox.X+borderBox.W, borderBox.Y+20, color.Gray{Y: 0x80}, 2)
-	}
-	return 40, nil
-}
-
 func countPrevSiblings(n ast.Node) int {
 	c := 0
 	for x := n.PreviousSibling(); x != nil; x = x.PreviousSibling() {
