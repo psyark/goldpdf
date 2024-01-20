@@ -120,7 +120,7 @@ func (p *pdfImpl) DrawImage(x, y float64, img *imageInfo) {
 
 func (p *pdfImpl) DrawBullet(x, y float64, c color.Color, r float64) {
 	if _, _, _, ca := c.RGBA(); ca != 0 && r != 0 {
-		p.fpdf.SetFillColor(p.colorHelper(c))
+		p.colorHelper(c, p.fpdf.SetFillColor)
 		p.fpdf.Circle(x, y, r, "F")
 	}
 }
@@ -128,7 +128,7 @@ func (p *pdfImpl) DrawBullet(x, y float64, c color.Color, r float64) {
 func (p *pdfImpl) DrawLine(x1, y1, x2, y2 float64, c color.Color, w float64) {
 	if _, _, _, ca := c.RGBA(); ca != 0 && w != 0 {
 		p.fpdf.SetLineWidth(w)
-		p.fpdf.SetDrawColor(p.colorHelper(c))
+		p.colorHelper(c, p.fpdf.SetDrawColor)
 		p.fpdf.Line(x1, y1, x2, y2)
 	}
 }
@@ -141,7 +141,7 @@ func (p *pdfImpl) DrawBox(x, y, w, h float64, bgColor color.Color, border Border
 
 	if bgColor != nil {
 		if _, _, _, ca := bgColor.RGBA(); ca != 0 {
-			p.fpdf.SetFillColor(p.colorHelper(bgColor))
+			p.colorHelper(bgColor, p.fpdf.SetFillColor)
 			p.fpdf.RoundedRect(x, y, w, h, borderRadius, "1234", "F")
 		}
 	}
@@ -151,7 +151,7 @@ func (p *pdfImpl) DrawBox(x, y, w, h float64, bgColor color.Color, border Border
 		if border.Color != nil && border.Width != 0 {
 			if _, _, _, ca := border.Color.RGBA(); ca != 0 {
 				p.fpdf.SetLineWidth(border.Width)
-				p.fpdf.SetDrawColor(p.colorHelper(border.Color))
+				p.colorHelper(border.Color, p.fpdf.SetDrawColor)
 				p.fpdf.RoundedRect(x+border.Width/2, y+border.Width/2, w-border.Width, h-border.Width, border.Radius, "1234", "D")
 			}
 		}
@@ -166,7 +166,7 @@ func (p *pdfImpl) drawEdge(x1, y1, x2, y2 float64, edge BorderEdge) {
 	if edge.Color != nil && edge.Width != 0 {
 		if _, _, _, ca := edge.Color.RGBA(); ca != 0 {
 			p.fpdf.SetLineWidth(edge.Width)
-			p.fpdf.SetDrawColor(p.colorHelper(edge.Color))
+			p.colorHelper(edge.Color, p.fpdf.SetDrawColor)
 			p.fpdf.Line(x1, y1, x2, y2)
 		}
 	}
@@ -188,11 +188,11 @@ func (p *pdfImpl) applyTextFormat(format TextFormat) {
 	}
 
 	p.fpdf.SetFont(format.FontFamily, fontStyle, format.FontSize)
-	p.fpdf.SetTextColor(p.colorHelper(format.Color))
+	p.colorHelper(format.Color, p.fpdf.SetTextColor)
 }
 
-func (p *pdfImpl) colorHelper(c color.Color) (int, int, int) {
+func (p *pdfImpl) colorHelper(c color.Color, fn func(int, int, int)) {
 	cr, cg, cb, ca := c.RGBA()
-	p.fpdf.SetAlpha(float64(ca)/0xFFFFF, "")
-	return int(cr >> 8), int(cg >> 8), int(cb >> 8)
+	p.fpdf.SetAlpha(float64(ca)/0xFFFF, "")
+	fn(int(cr>>8), int(cg>>8), int(cb>>8))
 }

@@ -81,7 +81,11 @@ func TestConvert(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				got, err := capturePDF(buf.Bytes(), color.White)
+				pdfName := fmt.Sprintf("testdata/%s.pdf", baseName)
+				pdfBytes := buf.Bytes()
+				os.WriteFile(pdfName, pdfBytes, 0666)
+
+				got, err := capturePDF(pdfBytes, color.White)
 				if err != nil {
 					t.Fatal(err)
 				}
