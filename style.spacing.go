@@ -22,6 +22,13 @@ func horizontal(spacer Spacer) float64 {
 	l, _, r, _ := spacer.Space()
 	return l + r
 }
+func vertical(spacer Spacer) float64 {
+	if spacer == nil {
+		return 0
+	}
+	_, t, _, b := spacer.Space()
+	return t + b
+}
 func top(spacer Spacer) float64 {
 	if spacer == nil {
 		return 0

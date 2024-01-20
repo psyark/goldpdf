@@ -71,15 +71,14 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext, o
 		case ast.TypeBlock:
 			bs2, _ := r.styler.Style(c)
 
-			// TODO マージンの相殺
-			height += bs2.Margin.Top
-			if h, err := r.renderBlockNode(c, contentBox.Extend(0, height, 0)); err != nil {
+			if h, err := r.renderBlockNode(c, contentBox.Extend(0, height, 0).Shrink(bs2.Margin)); err != nil {
 				return 0, err
 			} else {
 				borderBox.Y += h
 				height += h
 			}
-			height += bs2.Margin.Bottom
+			// TODO マージンの相殺
+			height += vertical(bs2.Margin)
 		case ast.TypeInline:
 			if e, err := r.getFlowElements(c); err != nil {
 				return 0, err
