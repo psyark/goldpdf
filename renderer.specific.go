@@ -25,11 +25,11 @@ func (r *Renderer) renderFencedCodeBlock(n *ast.FencedCodeBlock, borderBox Rende
 		elements = append(elements, ts, &HardBreak{})
 	}
 
-	return r.renderGenericBlockNode(n, borderBox, elements...)
+	return r.renderGenericBlockNode(n, borderBox, &rgbnOption{elements: elements})
 }
 
 func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (float64, error) {
-	h, err := r.renderGenericBlockNode(n, borderBox.Extend(16, 0, -16))
+	h, err := r.renderGenericBlockNode(n, borderBox.Extend(16, 0, -16), nil)
 	if err != nil {
 		return 0, err
 	}
@@ -137,6 +137,7 @@ func (r *Renderer) renderTableRow(n ast.Node, borderBox RenderContext, columnFor
 
 	bs, _ := r.styler.Style(n)
 
+	options := &rgbnOption{}
 	if !borderBox.Preflight {
 		h, err := r.renderTableRow(n, borderBox.InPreflight(), columnFormats)
 		if err != nil {
@@ -144,6 +145,7 @@ func (r *Renderer) renderTableRow(n ast.Node, borderBox RenderContext, columnFor
 		}
 
 		borderBox.Target.DrawBox(borderBox.X, borderBox.Y, borderBox.W, h, bs.BackgroundColor, bs.Border)
+		options.forceHeight = h
 	}
 
 	// TODO 背景色
@@ -153,7 +155,7 @@ func (r *Renderer) renderTableRow(n ast.Node, borderBox RenderContext, columnFor
 		tf, _ := r.styler.Style(cell)
 		borderBox.W = columnFormats[countPrevSiblings(cell)].contentWidth + horizontal(tf.Border) + horizontal(tf.Padding)
 
-		h, err := r.renderBlockNode(cell, borderBox)
+		h, err := r.renderGenericBlockNode(cell, borderBox, options)
 		if err != nil {
 			return 0, err
 		}

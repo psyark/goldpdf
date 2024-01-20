@@ -50,7 +50,7 @@ func (r *Renderer) getFlowElements(n ast.Node) ([]FlowElement, error) {
 }
 
 // renderFlowElements はテキストフローを描画し、その高さを返します
-func (r *Renderer) renderFlowElements(elements []FlowElement, borderBox RenderContext) (float64, error) {
+func (r *Renderer) renderFlowElements(elements []FlowElement, borderBox RenderContext, align xast.Alignment) (float64, error) {
 	height := 0.0
 	for len(elements) != 0 {
 		line, rest, lineHeight := borderBox.Target.SplitFirstLine(elements, borderBox.W)
