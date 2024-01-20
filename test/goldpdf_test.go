@@ -2,6 +2,7 @@ package goldpdftest
 
 import (
 	"bytes"
+	_ "embed"
 	"fmt"
 	"image"
 	"image/color"
@@ -11,11 +12,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jung-kurt/gofpdf"
 	"github.com/psyark/goldpdf"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 	"gopkg.in/gographics/imagick.v3/imagick"
 )
+
+//go:embed "testdata/ipaexg.ttf"
+var IpaexgBytes []byte
 
 func TestMain(m *testing.M) {
 	imagick.Initialize()
@@ -43,13 +48,32 @@ func TestConvert(t *testing.T) {
 
 				buf := bytes.NewBuffer(nil)
 
+				options := []goldpdf.Option{}
+				if strings.HasPrefix(baseName, "ja_") {
+					fontFamily := "Ipaexg"
+					options = []goldpdf.Option{
+						goldpdf.WithStyler(&goldpdf.DefaultStyler{
+							FontFamily: fontFamily,
+							FontSize:   12,
+							Color:      color.Black,
+						}),
+						goldpdf.WithPDFProvider(func() *gofpdf.Fpdf {
+							f := gofpdf.New("P", "pt", "A4", "")
+							f.AddUTF8FontFromBytes(fontFamily, "", IpaexgBytes)
+							f.AddUTF8FontFromBytes(fontFamily, "B", IpaexgBytes)
+							f.AddUTF8FontFromBytes(fontFamily, "I", IpaexgBytes)
+							f.AddUTF8FontFromBytes(fontFamily, "BI", IpaexgBytes)
+							return f
+						}),
+					}
+				}
 				markdown := goldmark.New(
 					goldmark.WithExtensions(
 						extension.Strikethrough,
 						extension.Table,
 					),
 					goldmark.WithRenderer(
-						goldpdf.New(),
+						goldpdf.New(options...),
 					),
 				)
 

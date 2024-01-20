@@ -5,7 +5,7 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/go-pdf/fpdf"
+	"github.com/jung-kurt/gofpdf"
 )
 
 type PDF interface {
@@ -24,7 +24,7 @@ type PDF interface {
 // Preflightを呼び出し側が判断する必要がなくなるため
 
 type pdfImpl struct {
-	fpdf *fpdf.Fpdf
+	fpdf *gofpdf.Fpdf
 }
 
 var _ PDF = &pdfImpl{}
@@ -117,8 +117,8 @@ func (p *pdfImpl) DrawTextSpan(x, y float64, span *TextSpan) {
 }
 
 func (p *pdfImpl) DrawImage(x, y float64, img *imageInfo) {
-	p.fpdf.RegisterImageOptionsReader(img.Name, fpdf.ImageOptions{ImageType: img.Type}, bytes.NewReader(img.Data))
-	p.fpdf.ImageOptions(img.Name, x, y, float64(img.Width), float64(img.Height), false, fpdf.ImageOptions{}, 0, "")
+	p.fpdf.RegisterImageOptionsReader(img.Name, gofpdf.ImageOptions{ImageType: img.Type}, bytes.NewReader(img.Data))
+	p.fpdf.ImageOptions(img.Name, x, y, float64(img.Width), float64(img.Height), false, gofpdf.ImageOptions{}, 0, "")
 }
 
 func (p *pdfImpl) DrawBullet(x, y float64, c color.Color, r float64) {

@@ -4,7 +4,7 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/go-pdf/fpdf"
+	"github.com/jung-kurt/gofpdf"
 	"github.com/yuin/goldmark/ast"
 	xast "github.com/yuin/goldmark/extension/ast"
 )
@@ -28,7 +28,7 @@ type TextFormat struct {
 	Border          UniformBorder
 }
 
-func (s TextFormat) Apply(pdf fpdf.Pdf) {
+func (s TextFormat) Apply(pdf gofpdf.Fpdf) {
 	fontStyle := ""
 	if s.Bold {
 		fontStyle += "B"
