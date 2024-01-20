@@ -71,7 +71,7 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 	for row := n.FirstChild(); row != nil; row = row.NextSibling() {
 		colIndex := 0
 		for col := row.FirstChild(); col != nil; col = col.NextSibling() {
-			elements := FlowElements{}
+			elements := []FlowElement{}
 			for c := col.FirstChild(); c != nil; c = c.NextSibling() {
 				e, err := r.getFlowElements(c)
 				if err != nil {

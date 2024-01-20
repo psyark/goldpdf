@@ -11,7 +11,8 @@ import (
 type PDF interface {
 	GetSpanWidth(span *TextSpan) float64
 	GetSubSpan(span *TextSpan, width float64) *TextSpan
-	GetNaturalWidth(elements FlowElements) float64
+	GetNaturalWidth(elements []FlowElement) float64
+	SplitFirstLine(elements []FlowElement, limitWidth float64) (first []FlowElement, rest []FlowElement, height float64)
 	DrawTextSpan(x, y float64, span *TextSpan)
 	DrawImage(x, y float64, img *imageInfo)
 	DrawBullet(x, y float64, c color.Color, r float64)
@@ -39,7 +40,7 @@ func (p *pdfImpl) GetSubSpan(span *TextSpan, width float64) *TextSpan {
 	return &TextSpan{Text: lines[0], Format: span.Format}
 }
 
-func (p *pdfImpl) GetNaturalWidth(elements FlowElements) float64 {
+func (p *pdfImpl) GetNaturalWidth(elements []FlowElement) float64 {
 	width := 0.0
 
 	lineWidth := 0.0
@@ -56,6 +57,56 @@ func (p *pdfImpl) GetNaturalWidth(elements FlowElements) float64 {
 	}
 
 	return math.Max(width, lineWidth)
+}
+
+func (pdf *pdfImpl) SplitFirstLine(elements []FlowElement, limitWidth float64) (first []FlowElement, rest []FlowElement, height float64) {
+	if len(elements) == 0 {
+		return nil, nil, 0
+	}
+
+	rest = elements
+	width := 0.0
+
+	for len(rest) != 0 && width < limitWidth {
+		switch e := rest[0].(type) {
+		case *TextSpan:
+			if sw := pdf.GetSpanWidth(e); sw <= limitWidth-width {
+				first = append(first, e)
+				width += sw
+				height = math.Max(height, e.Format.FontSize)
+				rest = rest[1:]
+			} else {
+				// 折返し
+				ss := pdf.GetSubSpan(e, limitWidth-width)
+				if ss.Text == "" {
+					return // この行にこれ以上入らない
+				}
+				first = append(first, ss)
+				width += pdf.GetSpanWidth(ss)
+				height = math.Max(height, e.Format.FontSize)
+				rest[0] = &TextSpan{
+					Format: e.Format,
+					Text:   string([]rune(e.Text)[len([]rune(ss.Text)):]),
+				}
+			}
+
+		case *Image:
+			// 行が空の場合はlimitWidthを無視
+			if len(first) == 0 || width+float64(e.Info.Width) <= limitWidth {
+				first = append(first, e)
+				height = math.Max(height, float64(e.Info.Height))
+				width += float64(e.Info.Width)
+				rest = rest[1:]
+			} else {
+				return // これ以上入らないので改行
+			}
+		case *HardBreak:
+			rest = rest[1:]
+			return
+		}
+	}
+
+	return
 }
 
 func (p *pdfImpl) DrawTextSpan(x, y float64, span *TextSpan) {
