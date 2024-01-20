@@ -41,15 +41,15 @@ func (r *Renderer) renderBlockNode(n ast.Node, borderBox RenderContext) (float64
 
 // renderGenericBlockNode provides basic rendering for all block nodes
 // except specific block nodes.
-func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext) (float64, error) {
+func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext, elements ...FlowElement) (float64, error) {
 	bs, _ := r.styler.Style(n)
 
 	if !borderBox.Preflight {
-		h, err := r.renderGenericBlockNode(n, borderBox.InPreflight())
+		h, err := r.renderGenericBlockNode(n, borderBox.InPreflight(), elements...)
 		if err != nil {
 			return 0, err
 		}
-		borderBox.Target.DrawRect(
+		borderBox.Target.DrawBox(
 			borderBox.X,
 			borderBox.Y,
 			borderBox.W,
@@ -59,10 +59,7 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext) (
 		)
 	}
 
-	// FlowElementsは子孫に渡さない
-	elements, borderBox := borderBox.FlowElements, borderBox.WithFlowElements(nil)
 	contentBox := borderBox.Shrink(bs.Border, bs.Padding)
-
 	height := top(bs.Border) + top(bs.Padding)
 
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {

@@ -16,8 +16,11 @@ type PDF interface {
 	DrawImage(x, y float64, img *imageInfo)
 	DrawBullet(x, y float64, c color.Color, r float64)
 	DrawLine(x1, y1, x2, y2 float64, c color.Color, w float64)
-	DrawRect(x, y, w, h float64, bgColor color.Color, border Border)
+	DrawBox(x, y, w, h float64, bgColor color.Color, border Border)
 }
+
+// TODO RenderContextと統合
+// Preflightを呼び出し側が判断する必要がなくなるため
 
 type pdfImpl struct {
 	fpdf *fpdf.Fpdf
@@ -57,7 +60,7 @@ func (p *pdfImpl) GetNaturalWidth(elements FlowElements) float64 {
 
 func (p *pdfImpl) DrawTextSpan(x, y float64, span *TextSpan) {
 	sw := p.GetSpanWidth(span)
-	p.DrawRect(x, y, sw, span.Format.FontSize, span.Format.BackgroundColor, span.Format.Border)
+	p.DrawBox(x, y, sw, span.Format.FontSize, span.Format.BackgroundColor, span.Format.Border)
 	p.applyTextFormat(span.Format)
 	p.fpdf.Text(x, y+span.Format.FontSize, span.Text)
 }
@@ -82,7 +85,7 @@ func (p *pdfImpl) DrawLine(x1, y1, x2, y2 float64, c color.Color, w float64) {
 	}
 }
 
-func (p *pdfImpl) DrawRect(x, y, w, h float64, bgColor color.Color, border Border) {
+func (p *pdfImpl) DrawBox(x, y, w, h float64, bgColor color.Color, border Border) {
 	var borderRadius float64
 	if border, ok := border.(UniformBorder); ok {
 		borderRadius = border.Radius
