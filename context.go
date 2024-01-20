@@ -1,9 +1,9 @@
 package goldpdf
 
 type RenderContext struct {
-	X, Y, W   float64
-	Preflight bool
-	Target    PDF
+	X, Y, W     float64
+	Target      PDF
+	inPreflight bool
 }
 
 func (rc RenderContext) MoveDown(dy float64) RenderContext {
@@ -23,7 +23,11 @@ func (rc RenderContext) Shrink(spacers ...Spacer) RenderContext {
 	return rc
 }
 
-func (rc RenderContext) InPreflight() RenderContext {
-	rc.Preflight = true
-	return rc
+func (rc *RenderContext) Preflight(fn func() error) error {
+	if !rc.inPreflight {
+		rc.inPreflight = true
+		defer func() { rc.inPreflight = false }()
+		return fn()
+	}
+	return nil
 }

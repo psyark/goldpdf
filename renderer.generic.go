@@ -50,15 +50,15 @@ type rgbnOption struct {
 func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext, option *rgbnOption) (float64, error) {
 	bs, _ := r.style(n)
 
-	if !borderBox.Preflight {
+	err := borderBox.Preflight(func() error {
 		var h float64
 		var err error
 		if option != nil && option.forceHeight != 0 {
 			h = option.forceHeight
 		} else {
-			h, err = r.renderGenericBlockNode(n, borderBox.InPreflight(), option)
+			h, err = r.renderGenericBlockNode(n, borderBox, option)
 			if err != nil {
-				return 0, err
+				return err
 			}
 		}
 		borderBox.Target.DrawBox(
@@ -69,6 +69,10 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext, o
 			bs.BackgroundColor,
 			bs.Border,
 		)
+		return nil
+	})
+	if err != nil {
+		return 0, err
 	}
 
 	elements := []FlowElement{}

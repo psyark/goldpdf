@@ -68,7 +68,7 @@ func (r *Renderer) renderFlowElements(elements []FlowElement, borderBox RenderCo
 
 		elements = rest
 
-		if !borderBox.Preflight {
+		err := borderBox.Preflight(func() error {
 			x := borderBox.X
 			y := borderBox.Y + height
 
@@ -82,10 +82,14 @@ func (r *Renderer) renderFlowElements(elements []FlowElement, borderBox RenderCo
 			for _, e := range line {
 				w, h := e.size(borderBox.Target)
 				if err := e.drawTo(x, y+lineHeight-h, borderBox.Target); err != nil {
-					return 0, err
+					return err
 				}
 				x += w
 			}
+			return nil
+		})
+		if err != nil {
+			return 0, err
 		}
 
 		height += lineHeight

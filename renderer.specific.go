@@ -33,7 +33,7 @@ func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (flo
 		return 0, err
 	}
 
-	if !borderBox.Preflight {
+	err = borderBox.Preflight(func() error {
 		list, ok := n.Parent().(*ast.List)
 
 		// 最初の要素の余白を考慮
@@ -52,6 +52,11 @@ func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (flo
 		} else {
 			borderBox.Target.DrawBullet(borderBox.X+4, borderBox.Y+h/2, color.Black, 2)
 		}
+
+		return nil
+	})
+	if err != nil {
+		return 0, err
 	}
 
 	return h, nil
@@ -134,14 +139,18 @@ func (r *Renderer) renderTableRow(n ast.Node, borderBox RenderContext, columnFor
 	bs, _ := r.style(n)
 
 	options := &rgbnOption{}
-	if !borderBox.Preflight {
-		h, err := r.renderTableRow(n, borderBox.InPreflight(), columnFormats)
+	err := borderBox.Preflight(func() error {
+		h, err := r.renderTableRow(n, borderBox, columnFormats)
 		if err != nil {
-			return 0, err
+			return err
 		}
 
 		borderBox.Target.DrawBox(borderBox.X, borderBox.Y, borderBox.W, h, bs.BackgroundColor, bs.Border)
 		options.forceHeight = h
+		return nil
+	})
+	if err != nil {
+		return 0, err
 	}
 
 	// TODO 背景色
