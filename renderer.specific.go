@@ -11,7 +11,6 @@ import (
 
 type columnFormat struct {
 	contentWidth float64
-	alignment    xast.Alignment
 }
 
 func (r *Renderer) renderFencedCodeBlock(n *ast.FencedCodeBlock, borderBox RenderContext) (float64, error) {
@@ -63,9 +62,6 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 	bf, _ := r.styler.Style(n)
 
 	columnFormats := make([]columnFormat, len(n.Alignments))
-	for i, a := range n.Alignments {
-		columnFormats[i].alignment = a
-	}
 
 	// TODO TableRow, TableCellの余白やボーダー幅の考慮
 	for row := n.FirstChild(); row != nil; row = row.NextSibling() {

@@ -14,6 +14,7 @@ type BlockStyle struct {
 	Padding         Spacing
 	BackgroundColor color.Color
 	Border          Border
+	TextAlign       xast.Alignment
 }
 
 type TextFormat struct {
@@ -75,19 +76,15 @@ func (s *DefaultStyler) Style(n ast.Node) (BlockStyle, TextFormat) {
 }
 
 func (s *DefaultStyler) style(n ast.Node, format TextFormat) (BlockStyle, TextFormat) {
-	style := BlockStyle{}
-
-	if format.FontFamily == "" {
-		format.FontFamily = s.FontFamily
-	}
-	if format.FontSize == 0 {
-		format.FontSize = s.FontSize
-	}
-	if format.Color == nil {
-		format.Color = s.Color
+	style := BlockStyle{
+		TextAlign: xast.AlignNone,
 	}
 
 	switch n := n.(type) {
+	case *ast.Document:
+		format.FontFamily = s.FontFamily
+		format.FontSize = s.FontSize
+		format.Color = s.Color
 	case *ast.Heading:
 		format.FontSize = s.FontSize * math.Pow(1.15, float64(7-n.Level))
 		style.Margin = Spacing{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
@@ -135,6 +132,12 @@ func (s *DefaultStyler) style(n ast.Node, format TextFormat) (BlockStyle, TextFo
 		}
 	case *xast.TableCell:
 		style.Padding = Spacing{Left: 10, Top: 10, Right: 10, Bottom: 10}
+		colIndex := countPrevSiblings(n)
+		if tr := n.Parent(); tr != nil {
+			if table, ok := tr.Parent().(*xast.Table); ok {
+				style.TextAlign = table.Alignments[colIndex]
+			}
+		}
 	}
 	return style, format
 }

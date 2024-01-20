@@ -1,7 +1,7 @@
 package goldpdf
 
 type FlowElement interface {
-	isFlowElement()
+	size(pdf PDF) (float64, float64)
 }
 
 var (
@@ -15,14 +15,18 @@ type TextSpan struct {
 	Text   string
 }
 
-func (*TextSpan) isFlowElement() {}
+func (s *TextSpan) size(pdf PDF) (float64, float64) {
+	return pdf.GetSpanWidth(s), s.Format.FontSize
+}
 
 type HardBreak struct{}
 
-func (*HardBreak) isFlowElement() {}
+func (*HardBreak) size(pdf PDF) (float64, float64) { return 0, 0 }
 
 type Image struct {
 	Info *imageInfo
 }
 
-func (*Image) isFlowElement() {}
+func (i *Image) size(pdf PDF) (float64, float64) {
+	return float64(i.Info.Width), float64(i.Info.Height)
+}

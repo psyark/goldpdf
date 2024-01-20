@@ -2,6 +2,7 @@ package goldpdf
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/yuin/goldmark/ast"
 	xast "github.com/yuin/goldmark/extension/ast"
@@ -53,9 +54,16 @@ func (r *Renderer) getFlowElements(n ast.Node) ([]FlowElement, error) {
 func (r *Renderer) renderFlowElements(elements []FlowElement, borderBox RenderContext, align xast.Alignment) (float64, error) {
 	height := 0.0
 	for len(elements) != 0 {
-		line, rest, lineHeight := borderBox.Target.SplitFirstLine(elements, borderBox.W)
+		line, rest := borderBox.Target.SplitFirstLine(elements, borderBox.W)
 		if len(line) == 0 {
 			break
+		}
+
+		var lineWidth, lineHeight float64
+		for _, e := range line {
+			w, h := e.size(borderBox.Target)
+			lineWidth += w
+			lineHeight = math.Max(lineHeight, h)
 		}
 
 		elements = rest
@@ -63,18 +71,27 @@ func (r *Renderer) renderFlowElements(elements []FlowElement, borderBox RenderCo
 		if !borderBox.Preflight {
 			x := borderBox.X
 			y := borderBox.Y + height
+
+			switch align {
+			case xast.AlignRight:
+				x += borderBox.W - lineWidth
+			case xast.AlignCenter:
+				x += (borderBox.W - lineWidth) / 2
+			}
+
 			for _, e := range line {
 				// TODO ベースラインで揃える
 				switch e := e.(type) {
 				case *TextSpan:
 					borderBox.Target.DrawTextSpan(x, y, e)
-					x += borderBox.Target.GetSpanWidth(e)
 				case *Image:
 					borderBox.Target.DrawImage(x, y, e.Info)
-					x += float64(e.Info.Width)
 				default:
 					return 0, fmt.Errorf("unsupported element: %v", e)
 				}
+
+				w, _ := e.size(borderBox.Target)
+				x += w
 			}
 		}
 

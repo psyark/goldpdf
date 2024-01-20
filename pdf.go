@@ -12,7 +12,7 @@ type PDF interface {
 	GetSpanWidth(span *TextSpan) float64
 	GetSubSpan(span *TextSpan, width float64) *TextSpan
 	GetNaturalWidth(elements []FlowElement) float64
-	SplitFirstLine(elements []FlowElement, limitWidth float64) (first []FlowElement, rest []FlowElement, height float64)
+	SplitFirstLine(elements []FlowElement, limitWidth float64) (first []FlowElement, rest []FlowElement)
 	DrawTextSpan(x, y float64, span *TextSpan)
 	DrawImage(x, y float64, img *imageInfo)
 	DrawBullet(x, y float64, c color.Color, r float64)
@@ -59,9 +59,9 @@ func (p *pdfImpl) GetNaturalWidth(elements []FlowElement) float64 {
 	return math.Max(width, lineWidth)
 }
 
-func (pdf *pdfImpl) SplitFirstLine(elements []FlowElement, limitWidth float64) (first []FlowElement, rest []FlowElement, height float64) {
+func (pdf *pdfImpl) SplitFirstLine(elements []FlowElement, limitWidth float64) (first []FlowElement, rest []FlowElement) {
 	if len(elements) == 0 {
-		return nil, nil, 0
+		return nil, nil
 	}
 
 	rest = elements
@@ -73,7 +73,6 @@ func (pdf *pdfImpl) SplitFirstLine(elements []FlowElement, limitWidth float64) (
 			if sw := pdf.GetSpanWidth(e); sw <= limitWidth-width {
 				first = append(first, e)
 				width += sw
-				height = math.Max(height, e.Format.FontSize)
 				rest = rest[1:]
 			} else {
 				// 折返し
@@ -83,7 +82,6 @@ func (pdf *pdfImpl) SplitFirstLine(elements []FlowElement, limitWidth float64) (
 				}
 				first = append(first, ss)
 				width += pdf.GetSpanWidth(ss)
-				height = math.Max(height, e.Format.FontSize)
 				rest[0] = &TextSpan{
 					Format: e.Format,
 					Text:   string([]rune(e.Text)[len([]rune(ss.Text)):]),
@@ -94,7 +92,6 @@ func (pdf *pdfImpl) SplitFirstLine(elements []FlowElement, limitWidth float64) (
 			// 行が空の場合はlimitWidthを無視
 			if len(first) == 0 || width+float64(e.Info.Width) <= limitWidth {
 				first = append(first, e)
-				height = math.Max(height, float64(e.Info.Height))
 				width += float64(e.Info.Width)
 				rest = rest[1:]
 			} else {

@@ -90,7 +90,7 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext, o
 	}
 
 	if len(elements) != 0 {
-		if h, err := r.renderFlowElements(elements, contentBox, xast.AlignNone); err != nil {
+		if h, err := r.renderFlowElements(elements, contentBox, bs.TextAlign); err != nil {
 			return 0, err
 		} else {
 			height += h
