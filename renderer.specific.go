@@ -28,7 +28,7 @@ func (r *Renderer) renderFencedCodeBlock(n *ast.FencedCodeBlock, borderBox Rende
 }
 
 func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (float64, error) {
-	h, err := r.renderGenericBlockNode(n, borderBox.Extend(16, 0, -16), nil)
+	h, err := r.renderGenericBlockNode(n, borderBox, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -112,7 +112,7 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 	for row := n.FirstChild(); row != nil; row = row.NextSibling() {
 		switch row := row.(type) {
 		case *xast.TableHeader, *xast.TableRow:
-			h, err := r.renderTableRow(row, contentBox.Extend(0, height, 0), columnFormats)
+			h, err := r.renderTableRow(row, contentBox.MoveDown(height), columnFormats)
 			if err != nil {
 				return 0, err
 			}

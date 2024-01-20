@@ -6,11 +6,8 @@ type RenderContext struct {
 	Target    PDF
 }
 
-// TODO 必要か確認する
-func (rc RenderContext) Extend(dx, dy, dw float64) RenderContext {
-	rc.X += dx
+func (rc RenderContext) MoveDown(dy float64) RenderContext {
 	rc.Y += dy
-	rc.W += dw
 	return rc
 }
 

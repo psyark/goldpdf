@@ -83,7 +83,7 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext, o
 		case ast.TypeBlock:
 			bs2, _ := r.style(c)
 
-			if h, err := r.renderBlockNode(c, contentBox.Extend(0, height, 0).Shrink(bs2.Margin)); err != nil {
+			if h, err := r.renderBlockNode(c, contentBox.MoveDown(height).Shrink(bs2.Margin)); err != nil {
 				return 0, err
 			} else {
 				borderBox.Y += h

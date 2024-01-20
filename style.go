@@ -61,6 +61,8 @@ func (s *DefaultStyler) Style(n ast.Node, tf TextFormat) (BlockStyle, TextFormat
 		}
 	case *ast.List:
 		bs.Margin = Spacing{Top: tf.FontSize / 2, Bottom: tf.FontSize / 2}
+	case *ast.ListItem:
+		bs.Padding = Spacing{Left: 16}
 	case *ast.Link, *ast.AutoLink:
 		tf.Color = color.RGBA{B: 0xFF, A: 0xFF}
 		tf.Underline = true
