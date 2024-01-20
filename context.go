@@ -31,10 +31,12 @@ func (rc RenderContext) Extend(dx, dy, dw float64) RenderContext {
 
 func (rc RenderContext) Shrink(spacers ...Spacer) RenderContext {
 	for _, s := range spacers {
-		l, t, r, _ := s.Space()
-		rc.X += l
-		rc.Y += t
-		rc.W -= l + r
+		if s != nil {
+			l, t, r, _ := s.Space()
+			rc.X += l
+			rc.Y += t
+			rc.W -= l + r
+		}
 	}
 	return rc
 }

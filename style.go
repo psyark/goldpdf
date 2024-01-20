@@ -13,7 +13,7 @@ type BlockStyle struct {
 	Margin          Spacing
 	Padding         Spacing
 	BackgroundColor color.Color
-	Border          UniformBorder // TODO Borderに
+	Border          Border
 }
 
 type TextFormat struct {
@@ -96,6 +96,9 @@ func (s *DefaultStyler) style(n ast.Node, format TextFormat) (BlockStyle, TextFo
 	case *ast.Blockquote:
 		style.Padding = Spacing{Left: 10}
 		style.Margin = Spacing{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
+		style.Border = IndividualBorder{
+			Left: BorderEdge{Color: color.Gray{Y: 0x80}, Width: 6},
+		}
 	case *ast.List:
 		style.Margin = Spacing{Top: format.FontSize / 2, Bottom: format.FontSize / 2}
 	case *ast.Link, *ast.AutoLink:
@@ -118,10 +121,19 @@ func (s *DefaultStyler) style(n ast.Node, format TextFormat) (BlockStyle, TextFo
 		style.Padding = Spacing{Top: 10, Left: 10, Bottom: 10, Right: 10}
 	case *xast.Strikethrough:
 		format.Strike = true
+	case *xast.Table:
+		style.Margin = Spacing{Top: 10, Bottom: 10}
 	case *xast.TableHeader:
-		style.BackgroundColor = color.Gray{Y: 0x80}
+		format.Bold = true
+	case *xast.TableRow:
+		edgeColor := color.Gray{Y: uint8(255 * 0.8)}
+		if _, ok := n.PreviousSibling().(*xast.TableHeader); ok {
+			edgeColor.Y = uint8(255 * 0.2)
+		}
+		style.Border = IndividualBorder{
+			Top: BorderEdge{Color: edgeColor, Width: 0.5},
+		}
 	case *xast.TableCell:
-		style.Border = UniformBorder{Width: 0.1, Color: color.RGBA{B: 0xFF, A: 0xFF}}
 		style.Padding = Spacing{Left: 10, Top: 10, Right: 10, Bottom: 10}
 	}
 	return style, format

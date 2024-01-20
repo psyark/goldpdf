@@ -26,8 +26,6 @@ func (r *Renderer) renderBlockNode(n ast.Node, borderBox RenderContext) (float64
 	}
 
 	switch n := n.(type) {
-	case *ast.Blockquote:
-		return r.renderBlockQuote(n, borderBox)
 	case *ast.FencedCodeBlock:
 		return r.renderFencedCodeBlock(n, borderBox)
 	case *ast.ListItem:
@@ -65,7 +63,7 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext) (
 	elements, borderBox := borderBox.FlowElements, borderBox.WithFlowElements(nil)
 	contentBox := borderBox.Shrink(bs.Border, bs.Padding)
 
-	height := bs.Border.Width + bs.Padding.Top
+	height := top(bs.Border) + top(bs.Padding)
 
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
 		switch c.Type() {
@@ -98,7 +96,7 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext) (
 		}
 	}
 
-	height += bs.Padding.Bottom + bs.Border.Width
+	height += bottom(bs.Padding) + bottom(bs.Border)
 	return height, nil
 }
 

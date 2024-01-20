@@ -16,7 +16,7 @@ type PDF interface {
 	DrawImage(x, y float64, img *imageInfo)
 	DrawBullet(x, y float64, c color.Color, r float64)
 	DrawLine(x1, y1, x2, y2 float64, c color.Color, w float64)
-	DrawRect(x, y, w, h float64, bgColor color.Color, border UniformBorder)
+	DrawRect(x, y, w, h float64, bgColor color.Color, border Border)
 }
 
 type pdfImpl struct {
@@ -82,18 +82,41 @@ func (p *pdfImpl) DrawLine(x1, y1, x2, y2 float64, c color.Color, w float64) {
 	}
 }
 
-func (p *pdfImpl) DrawRect(x, y, w, h float64, bgColor color.Color, border UniformBorder) {
+func (p *pdfImpl) DrawRect(x, y, w, h float64, bgColor color.Color, border Border) {
+	var borderRadius float64
+	if border, ok := border.(UniformBorder); ok {
+		borderRadius = border.Radius
+	}
+
 	if bgColor != nil {
 		if _, _, _, ca := bgColor.RGBA(); ca != 0 {
 			p.fpdf.SetFillColor(p.colorHelper(bgColor))
-			p.fpdf.RoundedRect(x, y, w, h, border.Radius, "1234", "F")
+			p.fpdf.RoundedRect(x, y, w, h, borderRadius, "1234", "F")
 		}
 	}
-	if border.Color != nil && border.Width != 0 {
-		if _, _, _, ca := border.Color.RGBA(); ca != 0 {
-			p.fpdf.SetLineWidth(border.Width)
-			p.fpdf.SetDrawColor(p.colorHelper(border.Color))
-			p.fpdf.RoundedRect(x+border.Width/2, y+border.Width/2, w-border.Width, h-border.Width, border.Radius, "1234", "D")
+
+	switch border := border.(type) {
+	case UniformBorder:
+		if border.Color != nil && border.Width != 0 {
+			if _, _, _, ca := border.Color.RGBA(); ca != 0 {
+				p.fpdf.SetLineWidth(border.Width)
+				p.fpdf.SetDrawColor(p.colorHelper(border.Color))
+				p.fpdf.RoundedRect(x+border.Width/2, y+border.Width/2, w-border.Width, h-border.Width, border.Radius, "1234", "D")
+			}
+		}
+	case IndividualBorder:
+		p.drawEdge(x+border.Left.Width/2, y, x+border.Left.Width/2, y+h, border.Left)
+		p.drawEdge(x, y+border.Top.Width/2, x+w, y+border.Top.Width/2, border.Top)
+		p.drawEdge(x+w-border.Right.Width/2, y, x+w-border.Right.Width/2, y+h, border.Right)
+		p.drawEdge(x, y+h-border.Bottom.Width/2, x+w, y+h-border.Bottom.Width/2, border.Bottom)
+	}
+}
+func (p *pdfImpl) drawEdge(x1, y1, x2, y2 float64, edge BorderEdge) {
+	if edge.Color != nil && edge.Width != 0 {
+		if _, _, _, ca := edge.Color.RGBA(); ca != 0 {
+			p.fpdf.SetLineWidth(edge.Width)
+			p.fpdf.SetDrawColor(p.colorHelper(edge.Color))
+			p.fpdf.Line(x1, y1, x2, y2)
 		}
 	}
 }

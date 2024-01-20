@@ -14,20 +14,6 @@ type columnFormat struct {
 	alignment    xast.Alignment
 }
 
-// TODO スタイルで実装する
-func (r *Renderer) renderBlockQuote(n *ast.Blockquote, borderBox RenderContext) (float64, error) {
-	h, err := r.renderGenericBlockNode(n, borderBox.Extend(6, 0, -6))
-	if err != nil {
-		return 0, err
-	}
-
-	if !borderBox.Preflight {
-		borderBox.Target.DrawLine(borderBox.X+3, borderBox.Y, borderBox.X+3, borderBox.Y+h, color.Gray{Y: 0x80}, 6)
-	}
-
-	return h, nil
-}
-
 func (r *Renderer) renderFencedCodeBlock(n *ast.FencedCodeBlock, borderBox RenderContext) (float64, error) {
 	_, tf := r.styler.Style(n)
 
@@ -54,7 +40,7 @@ func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (flo
 		// 最初の要素の余白を考慮
 		if n.FirstChild() != nil {
 			bs, _ := r.styler.Style(n.FirstChild())
-			borderBox.Y += bs.Margin.Top + bs.Border.Width + bs.Padding.Top
+			borderBox.Y += top(bs.Margin) + top(bs.Border) + top(bs.Padding)
 		}
 
 		if ok && list.IsOrdered() {
@@ -148,23 +134,34 @@ func (r *Renderer) renderTableRow(n ast.Node, borderBox RenderContext, columnCon
 		return 0, fmt.Errorf("unsupported kind: %v", n.Kind())
 	}
 
+	bs, _ := r.styler.Style(n)
+
+	if !borderBox.Preflight {
+		h, err := r.renderTableRow(n, borderBox.InPreflight(), columnContentWidths)
+		if err != nil {
+			return 0, err
+		}
+
+		borderBox.Target.DrawRect(borderBox.X, borderBox.Y, borderBox.W, h, bs.BackgroundColor, bs.Border)
+	}
+
 	// TODO 背景色
-	height := 0.0
-	cellBox := borderBox
+	height := top(bs.Border) + top(bs.Padding)
 
 	for cell := n.FirstChild(); cell != nil; cell = cell.NextSibling() {
 		tf, _ := r.styler.Style(cell)
-		cellBox.W = columnContentWidths[countPrevSiblings(cell)] + horizontal(tf.Border) + horizontal(tf.Padding)
+		borderBox.W = columnContentWidths[countPrevSiblings(cell)] + horizontal(tf.Border) + horizontal(tf.Padding)
 
-		h, err := r.renderBlockNode(cell, cellBox)
+		h, err := r.renderBlockNode(cell, borderBox)
 		if err != nil {
 			return 0, err
 		}
 
 		height = math.Max(height, h)
-		cellBox.X += cellBox.W
+		borderBox.X += borderBox.W
 	}
 
+	height += bottom(bs.Border) + bottom(bs.Padding)
 	return height, nil
 }
 

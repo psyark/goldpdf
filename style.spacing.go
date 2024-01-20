@@ -16,14 +16,23 @@ type Spacer interface {
 }
 
 func horizontal(spacer Spacer) float64 {
+	if spacer == nil {
+		return 0
+	}
 	l, _, r, _ := spacer.Space()
 	return l + r
 }
 func top(spacer Spacer) float64 {
+	if spacer == nil {
+		return 0
+	}
 	_, t, _, _ := spacer.Space()
 	return t
 }
 func bottom(spacer Spacer) float64 {
+	if spacer == nil {
+		return 0
+	}
 	_, _, _, b := spacer.Space()
 	return b
 }
