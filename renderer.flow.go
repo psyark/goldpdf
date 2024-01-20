@@ -80,17 +80,10 @@ func (r *Renderer) renderFlowElements(elements []FlowElement, borderBox RenderCo
 			}
 
 			for _, e := range line {
-				// TODO ベースラインで揃える
-				switch e := e.(type) {
-				case *TextSpan:
-					borderBox.Target.DrawTextSpan(x, y, e)
-				case *Image:
-					borderBox.Target.DrawImage(x, y, e.Info)
-				default:
-					return 0, fmt.Errorf("unsupported element: %v", e)
+				w, h := e.size(borderBox.Target)
+				if err := e.drawTo(x, y+lineHeight-h, borderBox.Target); err != nil {
+					return 0, err
 				}
-
-				w, _ := e.size(borderBox.Target)
 				x += w
 			}
 		}
