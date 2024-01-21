@@ -29,8 +29,6 @@ func (r *Renderer) renderBlockNode(n ast.Node, borderBox RenderContext) (float64
 	}
 
 	switch n := n.(type) {
-	case *ast.FencedCodeBlock:
-		return r.renderFencedCodeBlock(n, borderBox)
 	case *ast.ListItem:
 		return r.renderListItem(n, borderBox)
 	case *xast.Table:
@@ -41,7 +39,6 @@ func (r *Renderer) renderBlockNode(n ast.Node, borderBox RenderContext) (float64
 }
 
 type rgbnOption struct {
-	elements    []FlowElement
 	forceHeight float64
 }
 
@@ -75,16 +72,11 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext, o
 		return 0, err
 	}
 
-	elements := []FlowElement{}
-	if option != nil {
-		elements = option.elements
-	}
 	contentBox := borderBox.Shrink(bs.Border, bs.Padding)
 	height := 0.0
 
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
-		switch c.Type() {
-		case ast.TypeBlock:
+		if c.Type() == ast.TypeBlock {
 			bs2, _ := r.style(c)
 
 			if h, err := r.renderBlockNode(c, contentBox.MoveDown(height).Shrink(bs2.Margin)); err != nil {
@@ -95,13 +87,12 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext, o
 			}
 			// TODO マージンの相殺
 			height += vertical(bs2.Margin)
-		case ast.TypeInline:
-			if e, err := r.getFlowElements(c); err != nil {
-				return 0, err
-			} else {
-				elements = append(elements, e...)
-			}
 		}
+	}
+
+	elements, err := r.getFlowElements(n)
+	if err != nil {
+		return 0, err
 	}
 
 	if len(elements) != 0 {

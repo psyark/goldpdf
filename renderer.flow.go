@@ -1,27 +1,33 @@
 package goldpdf
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/yuin/goldmark/ast"
 	xast "github.com/yuin/goldmark/extension/ast"
 )
 
-// getFlowElements は指定されたインラインノードとその全ての子孫ノードをFlowElementのフラットな配列として返します
+// getFlowElements は指定されたノードに所属するFlowElementのスライスを取得します
+// 指定されたノードがブロックノードである場合、その直下のインラインノード（およびその子孫）を探索します
+// 指定されたノードがインラインノードである場合、その子孫が対象となります
 func (r *Renderer) getFlowElements(n ast.Node) ([]FlowElement, error) {
-	if n.Type() != ast.TypeInline {
-		return nil, fmt.Errorf("getFlowElements has been called with a non-inline node: %s", n.Kind())
-	}
-
-	_, tf := r.style(n)
 	elements := []FlowElement{}
 
 	switch n := n.(type) {
+	case *ast.FencedCodeBlock:
+		_, tf := r.style(n)
+		lines := n.Lines()
+		for i := 0; i < lines.Len(); i++ {
+			line := lines.At(i)
+			ts := &TextSpan{Text: string(line.Value(r.source)), Format: tf}
+			elements = append(elements, ts, &HardBreak{})
+		}
 	case *ast.AutoLink:
+		_, tf := r.style(n)
 		ts := &TextSpan{Format: tf, Text: string(n.URL(r.source))}
 		elements = append(elements, ts)
 	case *ast.Text:
+		_, tf := r.style(n)
 		ts := &TextSpan{Format: tf, Text: string(n.Text(r.source))}
 		elements = append(elements, ts)
 		if n.HardLineBreak() {
@@ -33,20 +39,25 @@ func (r *Renderer) getFlowElements(n ast.Node) ([]FlowElement, error) {
 			// If the image can be retrieved, ignore descendants (alt text).
 			elements = append(elements, &Image{Info: info})
 			return elements, nil
+		} else {
+			e, err := r.getFlowElements(n)
+			if err != nil {
+				return nil, err
+			}
+			elements = append(elements, e...)
 		}
-
-	case *ast.Emphasis, *ast.Link, *ast.CodeSpan, *xast.Strikethrough:
-	default:
-		return nil, fmt.Errorf("getFlowElements: unsupported kind: %s", n.Kind())
 	}
 
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
-		e, err := r.getFlowElements(c)
-		if err != nil {
-			return nil, err
+		if c.Type() == ast.TypeInline {
+			e, err := r.getFlowElements(c)
+			if err != nil {
+				return nil, err
+			}
+			elements = append(elements, e...)
 		}
-		elements = append(elements, e...)
 	}
+
 	return elements, nil
 }
 

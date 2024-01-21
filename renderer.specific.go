@@ -13,21 +13,6 @@ type columnFormat struct {
 	contentWidth float64
 }
 
-func (r *Renderer) renderFencedCodeBlock(n *ast.FencedCodeBlock, borderBox RenderContext) (float64, error) {
-	// TODO FlowElement取得処理をノードごとに分岐
-	_, tf := r.style(n)
-
-	elements := []FlowElement{}
-	lines := n.Lines()
-	for i := 0; i < lines.Len(); i++ {
-		line := lines.At(i)
-		ts := &TextSpan{Text: string(line.Value(r.source)), Format: tf}
-		elements = append(elements, ts, &HardBreak{})
-	}
-
-	return r.renderGenericBlockNode(n, borderBox, &rgbnOption{elements: elements})
-}
-
 func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (float64, error) {
 	h, err := r.renderGenericBlockNode(n, borderBox, nil)
 	if err != nil {
@@ -83,13 +68,9 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 	for row := n.FirstChild(); row != nil; row = row.NextSibling() {
 		colIndex := 0
 		for col := row.FirstChild(); col != nil; col = col.NextSibling() {
-			elements := []FlowElement{}
-			for c := col.FirstChild(); c != nil; c = c.NextSibling() {
-				e, err := r.getFlowElements(c)
-				if err != nil {
-					return 0, err
-				}
-				elements = append(elements, e...)
+			elements, err := r.getFlowElements(col)
+			if err != nil {
+				return 0, err
 			}
 
 			contentWidth := borderBox.Target.GetNaturalWidth(elements)
