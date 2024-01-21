@@ -14,6 +14,7 @@ type columnFormat struct {
 }
 
 func (r *Renderer) renderFencedCodeBlock(n *ast.FencedCodeBlock, borderBox RenderContext) (float64, error) {
+	// TODO FlowElement取得処理をノードごとに分岐
 	_, tf := r.style(n)
 
 	elements := []FlowElement{}
@@ -63,12 +64,22 @@ func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (flo
 }
 
 func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64, error) {
-	// TODO TableRow, TableCellのスタイル
-	bf, _ := r.style(n)
+	bs, _ := r.style(n)
+
+	err := borderBox.Preflight(func() error {
+		h, err := r.renderTable(n, borderBox)
+		if err != nil {
+			return err
+		}
+		borderBox.Target.DrawBox(borderBox.X, borderBox.Y, borderBox.W, h, bs.BackgroundColor, bs.Border)
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
 
 	columnFormats := make([]columnFormat, len(n.Alignments))
 
-	// TODO TableRow, TableCellの余白やボーダー幅の考慮
 	for row := n.FirstChild(); row != nil; row = row.NextSibling() {
 		colIndex := 0
 		for col := row.FirstChild(); col != nil; col = col.NextSibling() {
@@ -87,18 +98,18 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 		}
 	}
 
-	contentBox := borderBox.Shrink(bf.Border, bf.Padding)
+	contentBox := borderBox.Shrink(bs.Border, bs.Padding)
 
 	totalWidth := 0.0
 	availableWidth := contentBox.W
 	if row := n.FirstChild(); row != nil {
 		// TableHeaderの水平成分を減らす
-		bf, _ := r.style(row)
-		availableWidth -= horizontal(bf.Border) + horizontal(bf.Padding)
+		bs, _ := r.style(row)
+		availableWidth -= horizontal(bs.Margin) + horizontal(bs.Border) + horizontal(bs.Padding)
 		if col := row.FirstChild(); col != nil {
 			// TableCellの水平成分を減らす
-			bf, _ := r.style(col)
-			availableWidth -= (horizontal(bf.Border) + horizontal(bf.Padding)) * float64(len(n.Alignments))
+			bs, _ := r.style(col)
+			availableWidth -= (horizontal(bs.Margin) + horizontal(bs.Border) + horizontal(bs.Padding)) * float64(len(n.Alignments))
 		}
 	}
 
@@ -113,18 +124,20 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 		}
 	}
 
-	height := top(bf.Border) + top(bf.Padding)
+	height := 0.0
+
 	for row := n.FirstChild(); row != nil; row = row.NextSibling() {
 		switch row := row.(type) {
 		case *xast.TableHeader, *xast.TableRow:
-			h, err := r.renderTableRow(row, contentBox.MoveDown(height), columnFormats)
+			bs, _ := r.style(row)
+			h, err := r.renderTableRow(row, contentBox.MoveDown(height).Shrink(bs.Margin), columnFormats)
 			if err != nil {
 				return 0, err
 			}
 			height += h
 		}
 	}
-	height += bottom(bf.Border) + bottom(bf.Padding)
+	height += horizontal(bs.Border) + horizontal(bs.Padding)
 
 	return height, nil
 }
@@ -146,30 +159,30 @@ func (r *Renderer) renderTableRow(n ast.Node, borderBox RenderContext, columnFor
 		}
 
 		borderBox.Target.DrawBox(borderBox.X, borderBox.Y, borderBox.W, h, bs.BackgroundColor, bs.Border)
-		options.forceHeight = h
+		options.forceHeight = h - vertical(bs.Border) - vertical(bs.Padding)
 		return nil
 	})
 	if err != nil {
 		return 0, err
 	}
 
-	// TODO 背景色
-	height := top(bs.Border) + top(bs.Padding)
+	contentBox := borderBox.Shrink(bs.Border, bs.Padding)
+	height := 0.0
 
 	for cell := n.FirstChild(); cell != nil; cell = cell.NextSibling() {
 		tf, _ := r.style(cell)
-		borderBox.W = columnFormats[countPrevSiblings(cell)].contentWidth + horizontal(tf.Border) + horizontal(tf.Padding)
+		contentBox.W = columnFormats[countPrevSiblings(cell)].contentWidth + horizontal(tf.Border) + horizontal(tf.Padding)
 
-		h, err := r.renderGenericBlockNode(cell, borderBox, options)
+		h, err := r.renderGenericBlockNode(cell, contentBox, options)
 		if err != nil {
 			return 0, err
 		}
 
 		height = math.Max(height, h)
-		borderBox.X += borderBox.W
+		contentBox.X += contentBox.W
 	}
 
-	height += bottom(bs.Border) + bottom(bs.Padding)
+	height += vertical(bs.Border) + vertical(bs.Padding)
 	return height, nil
 }
 

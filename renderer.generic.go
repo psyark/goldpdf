@@ -80,7 +80,7 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext, o
 		elements = option.elements
 	}
 	contentBox := borderBox.Shrink(bs.Border, bs.Padding)
-	height := top(bs.Border) + top(bs.Padding)
+	height := 0.0
 
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
 		switch c.Type() {
@@ -112,6 +112,6 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext, o
 		}
 	}
 
-	height += bottom(bs.Padding) + bottom(bs.Border)
+	height += vertical(bs.Padding) + vertical(bs.Border)
 	return height, nil
 }
