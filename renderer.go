@@ -11,10 +11,10 @@ import (
 )
 
 type Renderer struct {
-	pdfProvider PDFProvider
 	source      []byte
+	pdfProvider PDFProvider
 	styler      Styler
-	imageLoader imageLoader
+	imageLoader ImageLoader
 }
 
 func (r *Renderer) Render(w io.Writer, source []byte, n ast.Node) error {
@@ -48,6 +48,7 @@ func New(options ...Option) renderer.Renderer {
 	r := &Renderer{
 		pdfProvider: func() *gofpdf.Fpdf { return gofpdf.New(gofpdf.OrientationPortrait, "pt", "A4", ".") },
 		styler:      &DefaultStyler{FontFamily: "Arial", FontSize: 12, Color: color.Black},
+		imageLoader: &DefaultImageLoader{},
 	}
 	for _, option := range options {
 		option(r)
@@ -63,4 +64,8 @@ func WithPDFProvider(pdfProvider PDFProvider) Option {
 
 func WithStyler(styler Styler) Option {
 	return func(r *Renderer) { r.styler = styler }
+}
+
+func WithImageLoader(imageLoader ImageLoader) Option {
+	return func(r *Renderer) { r.imageLoader = imageLoader }
 }

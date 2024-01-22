@@ -1,6 +1,9 @@
 package goldpdf
 
-import "fmt"
+import (
+	"fmt"
+	"image"
+)
 
 type FlowElement interface {
 	size(pdf PDF) (float64, float64)
@@ -36,14 +39,17 @@ func (h *HardBreak) drawTo(x, y float64, pdf PDF) error {
 }
 
 type Image struct {
-	Info *imageInfo
+	name      string
+	imageType string
+	img       image.Image
+	data      []byte
 }
 
 func (i *Image) size(pdf PDF) (float64, float64) {
-	return float64(i.Info.Width), float64(i.Info.Height)
+	return float64(i.img.Bounds().Dx()), float64(i.img.Bounds().Dy())
 }
 
-func (i *Image) drawTo(x, y float64, pdf PDF) error {
-	pdf.DrawImage(x, y, i.Info)
+func (i *Image) drawTo(x float64, y float64, pdf PDF) error {
+	pdf.DrawImage(x, y, i)
 	return nil
 }

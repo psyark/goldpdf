@@ -14,7 +14,7 @@ type PDF interface {
 	GetNaturalWidth(elements []FlowElement) float64
 	SplitFirstLine(elements []FlowElement, limitWidth float64) (first []FlowElement, rest []FlowElement)
 	DrawTextSpan(x, y float64, span *TextSpan)
-	DrawImage(x, y float64, img *imageInfo)
+	DrawImage(x, y float64, img *Image)
 	DrawBullet(x, y float64, c color.Color, r float64)
 	DrawLine(x1, y1, x2, y2 float64, c color.Color, w float64)
 	DrawBox(x, y, w, h float64, bgColor color.Color, border Border)
@@ -46,13 +46,12 @@ func (p *pdfImpl) GetNaturalWidth(elements []FlowElement) float64 {
 	lineWidth := 0.0
 	for _, e := range elements {
 		switch e := e.(type) {
-		case *TextSpan:
-			lineWidth += p.GetSpanWidth(e)
-		case *Image:
-			lineWidth += float64(e.Info.Width)
 		case *HardBreak:
 			width = math.Max(width, lineWidth)
 			lineWidth = 0
+		default:
+			w, _ := e.size(p)
+			lineWidth += w
 		}
 	}
 
@@ -90,9 +89,10 @@ func (pdf *pdfImpl) SplitFirstLine(elements []FlowElement, limitWidth float64) (
 
 		case *Image:
 			// 行が空の場合はlimitWidthを無視
-			if len(first) == 0 || width+float64(e.Info.Width) <= limitWidth {
+			w, _ := e.size(pdf)
+			if len(first) == 0 || width+w <= limitWidth {
 				first = append(first, e)
-				width += float64(e.Info.Width)
+				width += w
 				rest = rest[1:]
 			} else {
 				return // これ以上入らないので改行
@@ -113,9 +113,10 @@ func (p *pdfImpl) DrawTextSpan(x, y float64, span *TextSpan) {
 	p.fpdf.Text(x, y+span.Format.FontSize, span.Text)
 }
 
-func (p *pdfImpl) DrawImage(x, y float64, img *imageInfo) {
-	p.fpdf.RegisterImageOptionsReader(img.Name, gofpdf.ImageOptions{ImageType: img.Type}, bytes.NewReader(img.Data))
-	p.fpdf.ImageOptions(img.Name, x, y, float64(img.Width), float64(img.Height), false, gofpdf.ImageOptions{}, 0, "")
+func (p *pdfImpl) DrawImage(x, y float64, img *Image) {
+	p.fpdf.RegisterImageOptionsReader(img.name, gofpdf.ImageOptions{ImageType: img.imageType}, bytes.NewReader(img.data))
+	w, h := img.size(p)
+	p.fpdf.ImageOptions(img.name, x, y, w, h, false, gofpdf.ImageOptions{}, 0, "")
 }
 
 func (p *pdfImpl) DrawBullet(x, y float64, c color.Color, r float64) {

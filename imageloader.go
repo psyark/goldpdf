@@ -16,30 +16,31 @@ import (
 	"github.com/srwiley/rasterx"
 )
 
-type imageInfo struct {
-	Name          string
-	Type          string
-	Width, Height int
-	Data          []byte
+var (
+	_ ImageLoader = &DefaultImageLoader{}
+)
+
+type ImageLoader interface {
+	LoadImage(string) *Image
 }
 
-type imageLoader struct {
-	cache map[string]*imageInfo
+type DefaultImageLoader struct {
+	cache map[string]*Image
 }
 
-func (il *imageLoader) load(src string) *imageInfo {
+func (il *DefaultImageLoader) LoadImage(src string) *Image {
 	if il.cache == nil {
-		il.cache = map[string]*imageInfo{}
+		il.cache = map[string]*Image{}
 	}
 
-	if info, ok := il.cache[src]; ok {
-		return info
+	if img, ok := il.cache[src]; ok {
+		return img
 	}
 
 	il.cache[src] = nil
 
 	switch {
-	case strings.HasPrefix(src, "http"), strings.HasPrefix(src, "https"):
+	case strings.HasPrefix(src, "http:"), strings.HasPrefix(src, "https:"):
 		resp, err := http.Get(src)
 		if err != nil {
 			return nil
@@ -78,7 +79,7 @@ func (il *imageLoader) load(src string) *imageInfo {
 	}
 }
 
-func (il *imageLoader) registerBytes(src string, mimeType string, data []byte) error {
+func (il *DefaultImageLoader) registerBytes(src string, mimeType string, data []byte) error {
 	var img image.Image
 	var imgType string
 
@@ -113,12 +114,11 @@ func (il *imageLoader) registerBytes(src string, mimeType string, data []byte) e
 	}
 
 	name := strconv.Itoa(len(il.cache))
-	il.cache[src] = &imageInfo{
-		Name:   name,
-		Type:   imgType,
-		Width:  img.Bounds().Dx(),
-		Height: img.Bounds().Dy(),
-		Data:   data,
+	il.cache[src] = &Image{
+		name:      name,
+		imageType: imgType,
+		img:       img,
+		data:      data,
 	}
 	return nil
 }

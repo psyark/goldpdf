@@ -34,10 +34,10 @@ func (r *Renderer) getFlowElements(n ast.Node) ([]FlowElement, error) {
 			elements = append(elements, &HardBreak{})
 		}
 	case *ast.Image:
-		info := r.imageLoader.load(string(n.Destination))
-		if info != nil {
+		img := r.imageLoader.LoadImage(string(n.Destination))
+		if img != nil {
 			// If the image can be retrieved, ignore descendants (alt text).
-			elements = append(elements, &Image{Info: info})
+			elements = append(elements, img)
 			return elements, nil
 		} else {
 			e, err := r.getFlowElements(n)
