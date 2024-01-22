@@ -76,7 +76,7 @@ func (s *DefaultStyler) Style(n ast.Node, tf TextFormat) (BlockStyle, TextFormat
 	case *ast.CodeSpan:
 		tf.BackgroundColor = color.Gray{Y: 0xF2}
 		tf.Border = UniformBorder{Width: 0.5, Color: color.Gray{Y: 0x99}, Radius: 3}
-	case *ast.FencedCodeBlock:
+	case *ast.CodeBlock, *ast.FencedCodeBlock:
 		bs.BackgroundColor = color.Gray{Y: 0xF2}
 		bs.Margin = Spacing{Top: 10, Bottom: 10}
 		bs.Border = UniformBorder{Width: 0.5, Color: color.Gray{Y: 0x99}, Radius: 3}

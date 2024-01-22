@@ -14,7 +14,7 @@ func (r *Renderer) getFlowElements(n ast.Node) ([]FlowElement, error) {
 	elements := []FlowElement{}
 
 	switch n := n.(type) {
-	case *ast.FencedCodeBlock:
+	case *ast.CodeBlock, *ast.FencedCodeBlock:
 		_, tf := r.style(n)
 		lines := n.Lines()
 		for i := 0; i < lines.Len(); i++ {
