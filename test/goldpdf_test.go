@@ -16,8 +16,19 @@ import (
 	"gopkg.in/gographics/imagick.v3/imagick"
 )
 
-//go:embed "testdata/ipaexg.ttf"
-var IpaexgBytes []byte
+var (
+	//go:embed "testdata/ipaexg.ttf"
+	IpaexgBytes []byte
+
+	//go:embed "testdata/Noto_Sans/static/NotoSans-Regular.ttf"
+	NotoSansRegular []byte
+	//go:embed "testdata/Noto_Sans/static/NotoSans-Italic.ttf"
+	NotoSansRegularItalic []byte
+	//go:embed "testdata/Noto_Sans/static/NotoSans-Bold.ttf"
+	NotoSansBold []byte
+	//go:embed "testdata/Noto_Sans/static/NotoSans-BoldItalic.ttf"
+	NotoSansBoldItalic []byte
+)
 
 func TestMain(m *testing.M) {
 	imagick.Initialize()
@@ -34,6 +45,7 @@ func TestConvert(t *testing.T) {
 
 	for _, entry := range entries {
 		entry := entry
+
 		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".md") {
 			baseName := strings.TrimSuffix(entry.Name(), ".md")
 
@@ -45,7 +57,7 @@ func TestConvert(t *testing.T) {
 
 				buf := bytes.NewBuffer(nil)
 
-				options := []goldpdf.Option{}
+				var options []goldpdf.Option
 				if strings.HasPrefix(baseName, "ja_") {
 					fontFamily := "Ipaexg"
 					options = []goldpdf.Option{
@@ -63,6 +75,24 @@ func TestConvert(t *testing.T) {
 							return f
 						}),
 					}
+				} else {
+					fontFamily := "NotoSans"
+					options = []goldpdf.Option{
+						goldpdf.WithStyler(&goldpdf.DefaultStyler{
+							FontFamily: fontFamily,
+							FontSize:   12,
+							Color:      color.Black,
+						}),
+						goldpdf.WithPDFProvider(func() *gofpdf.Fpdf {
+							f := gofpdf.New("P", "pt", "A4", "")
+							f.AddUTF8FontFromBytes(fontFamily, "", NotoSansRegular)
+							f.AddUTF8FontFromBytes(fontFamily, "B", NotoSansBold)
+							f.AddUTF8FontFromBytes(fontFamily, "I", NotoSansRegularItalic)
+							f.AddUTF8FontFromBytes(fontFamily, "BI", NotoSansBoldItalic)
+							return f
+						}),
+					}
+
 				}
 				markdown := goldmark.New(
 					goldmark.WithExtensions(

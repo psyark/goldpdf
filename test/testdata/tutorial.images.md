@@ -1,4 +1,16 @@
 
+![](https://commonmark.org/help/images/favicon.png)
+
+---
+
+![Logo][1]
+
+[1]: https://commonmark.org/help/images/favicon.png "Creative Commons licensed"
+
+---
+
+---
+
 Here's our logo (hover to see the title text):
 
 Inline-style:
