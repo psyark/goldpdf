@@ -3,15 +3,13 @@ package goldpdf
 import (
 	"bytes"
 	"image/color"
-	"math"
 
 	"github.com/jung-kurt/gofpdf"
 )
 
 type PDF interface {
 	GetSpanWidth(span *TextSpan) float64
-	GetNaturalWidth(elements []FlowElement) float64
-	SplitFirstLine(elements []FlowElement, limitWidth float64) (first []FlowElement, rest []FlowElement)
+	SplitFirstLine(elements [][]FlowElement, limitWidth float64) (first []FlowElement, rest [][]FlowElement)
 	DrawTextSpan(x, y float64, span *TextSpan)
 	DrawImage(x, y float64, img *Image)
 	DrawBullet(x, y float64, c color.Color, r float64)
@@ -33,39 +31,17 @@ func (p *pdfImpl) GetSpanWidth(span *TextSpan) float64 {
 	return p.fpdf.GetStringWidth(span.Text)
 }
 
-func (p *pdfImpl) GetNaturalWidth(elements []FlowElement) float64 {
-	width := 0.0
-
-	lineWidth := 0.0
-	for _, e := range elements {
-		switch e := e.(type) {
-		case *HardBreak:
-			width = math.Max(width, lineWidth)
-			lineWidth = 0
-		default:
-			w, _ := e.size(p)
-			lineWidth += w
-		}
-	}
-
-	return math.Max(width, lineWidth)
-}
-
-func (pdf *pdfImpl) SplitFirstLine(elements []FlowElement, limitWidth float64) (first []FlowElement, rest []FlowElement) {
-	if len(elements) == 0 {
-		return nil, nil
-	}
-
+func (pdf *pdfImpl) SplitFirstLine(elements [][]FlowElement, limitWidth float64) (first []FlowElement, rest [][]FlowElement) {
 	rest = elements
 	width := 0.0
 
-	for len(rest) != 0 && width < limitWidth {
-		switch e := rest[0].(type) {
+	for len(rest) != 0 && len(rest[0]) != 0 && width < limitWidth {
+		switch e := rest[0][0].(type) {
 		case *TextSpan:
 			if sw := pdf.GetSpanWidth(e); sw <= limitWidth-width {
 				first = append(first, e)
 				width += sw
-				rest = rest[1:]
+				rest[0] = rest[0][1:]
 			} else {
 				// 折返し
 				ss := pdf.getSubSpan(e, limitWidth-width)
@@ -74,7 +50,7 @@ func (pdf *pdfImpl) SplitFirstLine(elements []FlowElement, limitWidth float64) (
 				}
 				first = append(first, ss)
 				width += pdf.GetSpanWidth(ss)
-				rest[0] = &TextSpan{
+				rest[0][0] = &TextSpan{
 					Format: e.Format,
 					Text:   string([]rune(e.Text)[len([]rune(ss.Text)):]),
 				}
@@ -86,14 +62,16 @@ func (pdf *pdfImpl) SplitFirstLine(elements []FlowElement, limitWidth float64) (
 			if len(first) == 0 || width+w <= limitWidth {
 				first = append(first, e)
 				width += w
-				rest = rest[1:]
+				rest[0] = rest[0][1:]
 			} else {
 				return // これ以上入らないので改行
 			}
-		case *HardBreak:
-			rest = rest[1:]
-			return
 		}
+	}
+
+	if len(rest[0]) == 0 {
+		rest = rest[1:]
+		return
 	}
 
 	return

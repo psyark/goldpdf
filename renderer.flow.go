@@ -7,11 +7,13 @@ import (
 	xast "github.com/yuin/goldmark/extension/ast"
 )
 
-// getFlowElements は指定されたノードに所属するFlowElementのスライスを取得します
-// 指定されたノードがブロックノードである場合、その直下のインラインノード（およびその子孫）を探索します
-// 指定されたノードがインラインノードである場合、その子孫が対象となります
-func (r *Renderer) getFlowElements(n ast.Node) []FlowElement {
-	elements := []FlowElement{}
+// getFlowElements は指定されたノードに所属するFlowElementを取得します
+// 所属とは「そのノードの子孫インラインノードであり、そのノードの子ブロックノードの子孫でない」ことを指します
+// 結果はFlowElementのスライスのスライスであり、外側のスライスはHardLineBreakによる区切りを表します。
+func (r *Renderer) getFlowElements(n ast.Node) [][]FlowElement {
+	elements := [][]FlowElement{
+		{},
+	}
 
 	switch n := n.(type) {
 	case *ast.CodeBlock, *ast.FencedCodeBlock:
@@ -20,35 +22,44 @@ func (r *Renderer) getFlowElements(n ast.Node) []FlowElement {
 		for i := 0; i < lines.Len(); i++ {
 			line := lines.At(i)
 			ts := &TextSpan{Text: string(line.Value(r.source)), Format: tf}
-			elements = append(elements, ts, &HardBreak{})
+			elements[len(elements)-1] = append(elements[len(elements)-1], ts)
+			elements = append(elements, []FlowElement{}) // HardLineBreak
 		}
 	case *ast.AutoLink:
 		_, tf := r.style(n)
 		ts := &TextSpan{Format: tf, Text: string(n.URL(r.source))}
-		elements = append(elements, ts)
+		elements[len(elements)-1] = append(elements[len(elements)-1], ts)
 	case *ast.Text:
 		_, tf := r.style(n)
 		ts := &TextSpan{Format: tf, Text: string(n.Text(r.source))}
-		elements = append(elements, ts)
+		elements[len(elements)-1] = append(elements[len(elements)-1], ts)
 		if n.HardLineBreak() {
-			elements = append(elements, &HardBreak{})
+			elements = append(elements, []FlowElement{}) // HardLineBreak
 		}
 	case *ast.Image:
 		img := r.imageLoader.LoadImage(string(n.Destination))
 		if img != nil {
 			// If the image can be retrieved, ignore descendants (alt text).
-			elements = append(elements, img)
+			elements[len(elements)-1] = append(elements[len(elements)-1], img)
 			return elements
 		} else {
-			e := r.getFlowElements(n)
-			elements = append(elements, e...)
+			for i, e := range r.getFlowElements(n) {
+				if i != 0 {
+					elements = append(elements, []FlowElement{})
+				}
+				elements[len(elements)-1] = append(elements[len(elements)-1], e...)
+			}
 		}
 	}
 
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
 		if c.Type() == ast.TypeInline {
-			e := r.getFlowElements(c)
-			elements = append(elements, e...)
+			for i, e := range r.getFlowElements(c) {
+				if i != 0 {
+					elements = append(elements, []FlowElement{})
+				}
+				elements[len(elements)-1] = append(elements[len(elements)-1], e...)
+			}
 		}
 	}
 
@@ -56,7 +67,7 @@ func (r *Renderer) getFlowElements(n ast.Node) []FlowElement {
 }
 
 // renderFlowElements はテキストフローを描画し、その高さを返します
-func (r *Renderer) renderFlowElements(elements []FlowElement, borderBox RenderContext, align xast.Alignment) (float64, error) {
+func (r *Renderer) renderFlowElements(elements [][]FlowElement, borderBox RenderContext, align xast.Alignment) (float64, error) {
 	height := 0.0
 	for len(elements) != 0 {
 		line, rest := borderBox.Target.SplitFirstLine(elements, borderBox.W)

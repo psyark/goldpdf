@@ -29,7 +29,7 @@ func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (flo
 		contentBox2 := contentBox.Shrink(bs2.Margin, bs2.Border, bs2.Padding)
 
 		elements := r.getFlowElements(n2)
-		_, h := elements[0].size(borderBox.Target)
+		_, h := elements[0][0].size(borderBox.Target)
 
 		if list, ok := n.Parent().(*ast.List); ok && list.IsOrdered() {
 			_, tf := r.style(n)
@@ -72,7 +72,7 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 		colIndex := 0
 		for col := row.FirstChild(); col != nil; col = col.NextSibling() {
 			elements := r.getFlowElements(col)
-			contentWidth := borderBox.Target.GetNaturalWidth(elements)
+			contentWidth := getNaturalWidth(elements, borderBox)
 			columnFormats[colIndex].contentWidth = math.Max(columnFormats[colIndex].contentWidth, contentWidth)
 			colIndex++
 		}
@@ -164,6 +164,19 @@ func (r *Renderer) renderTableRow(n ast.Node, borderBox RenderContext, columnFor
 
 	height += vertical(bs.Border) + vertical(bs.Padding)
 	return height, nil
+}
+
+func getNaturalWidth(elements [][]FlowElement, rc RenderContext) float64 {
+	width := 0.0
+	for _, line := range elements {
+		lineWidth := 0.0
+		for _, e := range line {
+			w, _ := e.size(rc.Target)
+			lineWidth += w
+		}
+		width = math.Max(width, lineWidth)
+	}
+	return width
 }
 
 func countPrevSiblings(n ast.Node) int {

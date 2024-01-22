@@ -1,7 +1,6 @@
 package goldpdf
 
 import (
-	"fmt"
 	"image"
 )
 
@@ -12,7 +11,6 @@ type FlowElement interface {
 
 var (
 	_ FlowElement = &TextSpan{}
-	_ FlowElement = &HardBreak{}
 	_ FlowElement = &Image{}
 )
 
@@ -28,14 +26,6 @@ func (s *TextSpan) size(pdf PDF) (float64, float64) {
 func (t *TextSpan) drawTo(x, y float64, pdf PDF) error {
 	pdf.DrawTextSpan(x, y, t)
 	return nil
-}
-
-type HardBreak struct{}
-
-func (*HardBreak) size(pdf PDF) (float64, float64) { return 0, 0 }
-
-func (h *HardBreak) drawTo(x, y float64, pdf PDF) error {
-	return fmt.Errorf("unsupported")
 }
 
 type Image struct {
