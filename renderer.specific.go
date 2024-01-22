@@ -20,15 +20,13 @@ func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (flo
 	}
 
 	err = borderBox.Preflight(func() error {
-		list, ok := n.Parent().(*ast.List)
-
 		// 最初の要素の余白を考慮
 		if n.FirstChild() != nil {
 			bs, _ := r.style(n.FirstChild())
 			borderBox.Y += top(bs.Margin) + top(bs.Border) + top(bs.Padding)
 		}
 
-		if ok && list.IsOrdered() {
+		if list, ok := n.Parent().(*ast.List); ok && list.IsOrdered() {
 			_, tf := r.style(n)
 			ts := &TextSpan{
 				Format: tf,
