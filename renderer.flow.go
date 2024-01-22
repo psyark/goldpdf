@@ -7,9 +7,9 @@ import (
 	xast "github.com/yuin/goldmark/extension/ast"
 )
 
-// getFlowElements は指定されたノードに所属するFlowElementを取得します
-// 所属とは「そのノードの子孫インラインノードであり、そのノードの子ブロックノードの子孫でない」ことを指します
-// 結果はFlowElementのスライスのスライスであり、外側のスライスはHardLineBreakによる区切りを表します。
+// getFlowElements retrieves the FlowElement belonging to the specified node.
+// Belonging means "a descendant inline node of the node and not a descendant of a child block node of the node."
+// The result is a slice of a slice of a FlowElement, where the outer slice represents a break by a HardLineBreak.
 func (r *Renderer) getFlowElements(n ast.Node) [][]FlowElement {
 	elements := [][]FlowElement{
 		{},
@@ -43,23 +43,17 @@ func (r *Renderer) getFlowElements(n ast.Node) [][]FlowElement {
 			elements[len(elements)-1] = append(elements[len(elements)-1], img)
 			return elements
 		} else {
-			for i, e := range r.getFlowElements(n) {
-				if i != 0 {
-					elements = append(elements, []FlowElement{})
-				}
-				elements[len(elements)-1] = append(elements[len(elements)-1], e...)
-			}
+			e := r.getFlowElements(n)
+			elements[len(elements)-1] = append(elements[len(elements)-1], e[0]...)
+			elements = append(elements, e[1:]...)
 		}
 	}
 
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
 		if c.Type() == ast.TypeInline {
-			for i, e := range r.getFlowElements(c) {
-				if i != 0 {
-					elements = append(elements, []FlowElement{})
-				}
-				elements[len(elements)-1] = append(elements[len(elements)-1], e...)
-			}
+			e := r.getFlowElements(c)
+			elements[len(elements)-1] = append(elements[len(elements)-1], e[0]...)
+			elements = append(elements, e[1:]...)
 		}
 	}
 
