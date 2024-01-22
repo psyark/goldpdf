@@ -10,7 +10,7 @@ import (
 // getFlowElements は指定されたノードに所属するFlowElementのスライスを取得します
 // 指定されたノードがブロックノードである場合、その直下のインラインノード（およびその子孫）を探索します
 // 指定されたノードがインラインノードである場合、その子孫が対象となります
-func (r *Renderer) getFlowElements(n ast.Node) ([]FlowElement, error) {
+func (r *Renderer) getFlowElements(n ast.Node) []FlowElement {
 	elements := []FlowElement{}
 
 	switch n := n.(type) {
@@ -38,27 +38,21 @@ func (r *Renderer) getFlowElements(n ast.Node) ([]FlowElement, error) {
 		if img != nil {
 			// If the image can be retrieved, ignore descendants (alt text).
 			elements = append(elements, img)
-			return elements, nil
+			return elements
 		} else {
-			e, err := r.getFlowElements(n)
-			if err != nil {
-				return nil, err
-			}
+			e := r.getFlowElements(n)
 			elements = append(elements, e...)
 		}
 	}
 
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
 		if c.Type() == ast.TypeInline {
-			e, err := r.getFlowElements(c)
-			if err != nil {
-				return nil, err
-			}
+			e := r.getFlowElements(c)
 			elements = append(elements, e...)
 		}
 	}
 
-	return elements, nil
+	return elements
 }
 
 // renderFlowElements はテキストフローを描画し、その高さを返します

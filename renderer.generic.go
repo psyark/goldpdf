@@ -90,12 +90,7 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, borderBox RenderContext, o
 		}
 	}
 
-	elements, err := r.getFlowElements(n)
-	if err != nil {
-		return 0, err
-	}
-
-	if len(elements) != 0 {
+	if elements := r.getFlowElements(n); len(elements) != 0 {
 		if h, err := r.renderFlowElements(elements, contentBox, bs.TextAlign); err != nil {
 			return 0, err
 		} else {

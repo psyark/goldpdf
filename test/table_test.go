@@ -37,7 +37,7 @@ func (s *customStyler) Style(n ast.Node, tf goldpdf.TextFormat) (goldpdf.BlockSt
 }
 
 func TestTable(t *testing.T) {
-	md, err := os.ReadFile("testdata/table.md")
+	md, err := os.ReadFile("testdata/basic/table.md")
 	if err != nil {
 		t.Fatal(err)
 	}

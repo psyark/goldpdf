@@ -37,8 +37,8 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
-func TestConvert(t *testing.T) {
-	entries, err := os.ReadDir("testdata")
+func TestBasic(t *testing.T) {
+	entries, err := os.ReadDir("testdata/basic")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func TestConvert(t *testing.T) {
 			baseName := strings.TrimSuffix(entry.Name(), ".md")
 
 			t.Run(entry.Name(), func(t *testing.T) {
-				md, err := os.ReadFile(fmt.Sprintf("testdata/%s", entry.Name()))
+				md, err := os.ReadFile(fmt.Sprintf("testdata/basic/%s", entry.Name()))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -109,10 +109,10 @@ func TestConvert(t *testing.T) {
 				}
 
 				pdfBytes := buf.Bytes()
-				pdfName := fmt.Sprintf("testdata/%s.pdf", baseName)
-				wantName := fmt.Sprintf("testdata/%s.png", baseName)
-				gotName := fmt.Sprintf("testdata/%s_got.png", baseName)
-				diffName := fmt.Sprintf("testdata/%s_diff.png", baseName)
+				pdfName := fmt.Sprintf("testdata/basic/%s.pdf", baseName)
+				wantName := fmt.Sprintf("testdata/basic/%s.png", baseName)
+				gotName := fmt.Sprintf("testdata/basic/%s_got.png", baseName)
+				diffName := fmt.Sprintf("testdata/basic/%s_diff.png", baseName)
 
 				if err := CompareAndOutputResults(pdfBytes, pdfName, wantName, gotName, diffName); err != nil {
 					t.Fatal(err)

@@ -20,11 +20,16 @@ func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (flo
 	}
 
 	err = borderBox.Preflight(func() error {
-		// 最初の要素の余白を考慮
-		if n.FirstChild() != nil {
-			bs, _ := r.style(n.FirstChild())
-			borderBox.Y += top(bs.Margin) + top(bs.Border) + top(bs.Padding)
-		}
+		bs, _ := r.style(n)
+		contentBox := borderBox.Shrink(bs.Border, bs.Padding) // ListItemのコンテンツボックス
+
+		// ListItemの最初のブロックノード
+		n2 := n.FirstChild()
+		bs2, _ := r.style(n2)
+		contentBox2 := contentBox.Shrink(bs2.Margin, bs2.Border, bs2.Padding)
+
+		elements := r.getFlowElements(n2)
+		_, h := elements[0].size(borderBox.Target)
 
 		if list, ok := n.Parent().(*ast.List); ok && list.IsOrdered() {
 			_, tf := r.style(n)
@@ -32,9 +37,9 @@ func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (flo
 				Format: tf,
 				Text:   fmt.Sprintf("%d.", countPrevSiblings(n)+1),
 			}
-			borderBox.Target.DrawTextSpan(borderBox.X, borderBox.Y, ts)
+			borderBox.Target.DrawTextSpan(contentBox2.X-15, contentBox2.Y, ts)
 		} else {
-			borderBox.Target.DrawBullet(borderBox.X+4, borderBox.Y+h/2, color.Black, 2)
+			borderBox.Target.DrawBullet(contentBox2.X-10, contentBox2.Y+h/2, color.Black, 2)
 		}
 
 		return nil
@@ -66,11 +71,7 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 	for row := n.FirstChild(); row != nil; row = row.NextSibling() {
 		colIndex := 0
 		for col := row.FirstChild(); col != nil; col = col.NextSibling() {
-			elements, err := r.getFlowElements(col)
-			if err != nil {
-				return 0, err
-			}
-
+			elements := r.getFlowElements(col)
 			contentWidth := borderBox.Target.GetNaturalWidth(elements)
 			columnFormats[colIndex].contentWidth = math.Max(columnFormats[colIndex].contentWidth, contentWidth)
 			colIndex++
