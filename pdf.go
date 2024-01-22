@@ -10,7 +10,6 @@ import (
 
 type PDF interface {
 	GetSpanWidth(span *TextSpan) float64
-	GetSubSpan(span *TextSpan, width float64) *TextSpan
 	GetNaturalWidth(elements []FlowElement) float64
 	SplitFirstLine(elements []FlowElement, limitWidth float64) (first []FlowElement, rest []FlowElement)
 	DrawTextSpan(x, y float64, span *TextSpan)
@@ -32,12 +31,6 @@ var _ PDF = &pdfImpl{}
 func (p *pdfImpl) GetSpanWidth(span *TextSpan) float64 {
 	p.applyTextFormat(span.Format)
 	return p.fpdf.GetStringWidth(span.Text)
-}
-
-func (p *pdfImpl) GetSubSpan(span *TextSpan, width float64) *TextSpan {
-	p.applyTextFormat(span.Format)
-	lines := p.fpdf.SplitText(span.Text, width)
-	return &TextSpan{Text: lines[0], Format: span.Format}
 }
 
 func (p *pdfImpl) GetNaturalWidth(elements []FlowElement) float64 {
@@ -75,7 +68,7 @@ func (pdf *pdfImpl) SplitFirstLine(elements []FlowElement, limitWidth float64) (
 				rest = rest[1:]
 			} else {
 				// 折返し
-				ss := pdf.GetSubSpan(e, limitWidth-width)
+				ss := pdf.getSubSpan(e, limitWidth-width)
 				if ss.Text == "" {
 					return // この行にこれ以上入らない
 				}
@@ -190,6 +183,12 @@ func (p *pdfImpl) applyTextFormat(format TextFormat) {
 
 	p.fpdf.SetFont(format.FontFamily, fontStyle, format.FontSize)
 	p.colorHelper(format.Color, p.fpdf.SetTextColor)
+}
+
+func (p *pdfImpl) getSubSpan(span *TextSpan, width float64) *TextSpan {
+	p.applyTextFormat(span.Format)
+	lines := p.fpdf.SplitText(span.Text, width)
+	return &TextSpan{Text: lines[0], Format: span.Format}
 }
 
 func (p *pdfImpl) colorHelper(c color.Color, fn func(int, int, int)) {
