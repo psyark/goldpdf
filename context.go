@@ -1,6 +1,14 @@
 package goldpdf
 
-// TODO X, Y, W は分離
+// MeasureContext provides a way to measure the dimensions of the drawing element.
+type MeasureContext interface {
+	GetSpanWidth(span *TextSpan) float64
+	GetSubSpan(span *TextSpan, width float64) *TextSpan
+
+	// GetRenderContext(fn func(RenderContext) error) error
+}
+
+// TODO X, Y, W は分離？
 // TODO PDFと統合
 type RenderContext struct {
 	X, Y, W     float64
@@ -31,6 +39,7 @@ func (rc RenderContext) Shrink(spacers ...Spacer) RenderContext {
 // 単一の関数がノードのサイズ計算とノードの描画を担当することができるようになります。
 //
 // TODO より実態に即した名前をつける
+// TODO コンテキストをレンダリング可能なものと不可能なものに分け、fn にレンダリング可能なコンテキストを渡す
 func (rc *RenderContext) Preflight(fn func() error) error {
 	if !rc.inPreflight {
 		rc.inPreflight = true

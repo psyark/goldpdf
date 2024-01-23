@@ -8,8 +8,7 @@ import (
 )
 
 type PDF interface {
-	GetSpanWidth(span *TextSpan) float64
-	SplitFirstLine(elements [][]FlowElement, limitWidth float64) (first []FlowElement, rest [][]FlowElement)
+	MeasureContext
 	DrawTextSpan(x, y float64, span *TextSpan)
 	DrawImage(x, y float64, img *Image)
 	DrawBullet(x, y float64, c color.Color, r float64)
@@ -29,52 +28,6 @@ var _ PDF = &pdfImpl{}
 func (p *pdfImpl) GetSpanWidth(span *TextSpan) float64 {
 	p.applyTextFormat(span.Format)
 	return p.fpdf.GetStringWidth(span.Text)
-}
-
-func (pdf *pdfImpl) SplitFirstLine(elements [][]FlowElement, limitWidth float64) (first []FlowElement, rest [][]FlowElement) {
-	rest = elements
-	width := 0.0
-
-	for len(rest) != 0 && len(rest[0]) != 0 && width < limitWidth {
-		switch e := rest[0][0].(type) {
-		case *TextSpan:
-			if sw := pdf.GetSpanWidth(e); sw <= limitWidth-width {
-				first = append(first, e)
-				width += sw
-				rest[0] = rest[0][1:]
-			} else {
-				// 折返し
-				ss := pdf.getSubSpan(e, limitWidth-width)
-				if ss.Text == "" {
-					return // この行にこれ以上入らない
-				}
-				first = append(first, ss)
-				width += pdf.GetSpanWidth(ss)
-				rest[0][0] = &TextSpan{
-					Format: e.Format,
-					Text:   string([]rune(e.Text)[len([]rune(ss.Text)):]),
-				}
-			}
-
-		case *Image:
-			// 行が空の場合はlimitWidthを無視
-			w, _ := e.size(pdf)
-			if len(first) == 0 || width+w <= limitWidth {
-				first = append(first, e)
-				width += w
-				rest[0] = rest[0][1:]
-			} else {
-				return // これ以上入らないので改行
-			}
-		}
-	}
-
-	if len(rest[0]) == 0 {
-		rest = rest[1:]
-		return
-	}
-
-	return
 }
 
 func (p *pdfImpl) DrawTextSpan(x, y float64, span *TextSpan) {
@@ -163,7 +116,7 @@ func (p *pdfImpl) applyTextFormat(format TextFormat) {
 	p.colorHelper(format.Color, p.fpdf.SetTextColor)
 }
 
-func (p *pdfImpl) getSubSpan(span *TextSpan, width float64) *TextSpan {
+func (p *pdfImpl) GetSubSpan(span *TextSpan, width float64) *TextSpan {
 	p.applyTextFormat(span.Format)
 	lines := p.fpdf.SplitText(span.Text, width)
 	return &TextSpan{Text: lines[0], Format: span.Format}

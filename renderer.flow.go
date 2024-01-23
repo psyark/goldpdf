@@ -64,7 +64,7 @@ func (r *Renderer) getFlowElements(n ast.Node) [][]FlowElement {
 func (r *Renderer) renderFlowElements(elements [][]FlowElement, borderBox RenderContext, align xast.Alignment) (float64, error) {
 	height := 0.0
 	for len(elements) != 0 {
-		line, rest := borderBox.Target.SplitFirstLine(elements, borderBox.W)
+		line, rest := SplitFirstLine(borderBox.Target, elements, borderBox.W)
 		if len(line) == 0 {
 			break
 		}
