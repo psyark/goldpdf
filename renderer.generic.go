@@ -20,28 +20,26 @@ func (r *Renderer) renderBlockNode(n ast.Node, mc MeasureContext, borderBox Rect
 	case *xast.Table:
 		return r.renderTable(n, mc, borderBox)
 	default:
-		return r.renderGenericBlockNode(n, mc, borderBox)
+		return r.renderGenericBlockNode(n, mc, borderBox, false)
 	}
 }
 
 // renderGenericBlockNode provides basic rendering for all block nodes
 // except specific block nodes.
-func (r *Renderer) renderGenericBlockNode(n ast.Node, mc MeasureContext, borderBox Rect) (Rect, error) {
+func (r *Renderer) renderGenericBlockNode(n ast.Node, mc MeasureContext, borderBox Rect, fixHeight bool) (Rect, error) {
 	bs := r.blockStyle(n)
 
 	err := mc.GetRenderContext(func(rc RenderContext) error {
-		if !borderBox.HasBottom {
-			b, err := r.renderGenericBlockNode(n, mc, borderBox)
-			if n.Kind() == ast.KindBlockquote {
-				fmt.Println("bb3", b)
-			}
+		b := borderBox
+		if !fixHeight {
+			var err error
+			b, err = r.renderGenericBlockNode(n, mc, borderBox, fixHeight)
 			if err != nil {
 				return err
 			}
-			borderBox = b
 		}
 
-		rc.DrawBox(borderBox, bs.BackgroundColor, bs.Border)
+		rc.DrawBox(b, bs.BackgroundColor, bs.Border)
 		return nil
 	})
 	if err != nil {
@@ -74,7 +72,6 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, mc MeasureContext, borderB
 
 		borderBox.Bottom = contentBox.Top
 		borderBox.Bottom.Position += bottom(bs.Padding) + bottom(bs.Border)
-		borderBox.HasBottom = true
 
 		if n.Kind() == ast.KindBlockquote {
 			fmt.Println("bb1", borderBox)

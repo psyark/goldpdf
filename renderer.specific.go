@@ -14,7 +14,7 @@ type columnFormat struct {
 }
 
 func (r *Renderer) renderListItem(n ast.Node, mc MeasureContext, borderBox Rect) (Rect, error) {
-	rect, err := r.renderGenericBlockNode(n, mc, borderBox)
+	rect, err := r.renderGenericBlockNode(n, mc, borderBox, false)
 	if err != nil {
 		return rect, err
 	}
@@ -118,7 +118,6 @@ func (r *Renderer) renderTable(n *xast.Table, mc MeasureContext, borderBox Rect)
 
 	borderBox.Bottom = contentBox.Top
 	borderBox.Bottom.Position += horizontal(bs.Border) + horizontal(bs.Padding)
-	borderBox.HasBottom = true
 
 	return borderBox, nil
 }
@@ -140,7 +139,6 @@ func (r *Renderer) renderTableRow(n ast.Node, mc MeasureContext, borderBox Rect,
 
 		rc.DrawBox(rowRect, bs.BackgroundColor, bs.Border)
 		borderBox.Bottom = rowRect.Bottom // ここで各テーブルセルの高さを行と一致させる
-		borderBox.HasBottom = true
 		return nil
 	})
 	if err != nil {
@@ -154,21 +152,19 @@ func (r *Renderer) renderTableRow(n ast.Node, mc MeasureContext, borderBox Rect,
 		contentBox.Left += bs.Margin.Left
 		contentBox.Right = contentBox.Left + columnFormats[countPrevSiblings(cell)].contentWidth + horizontal(bs.Border) + horizontal(bs.Padding)
 
-		cellRect, err := r.renderGenericBlockNode(cell, mc, contentBox)
+		cellRect, err := r.renderGenericBlockNode(cell, mc, contentBox, true)
 		if err != nil {
 			return Rect{}, err
 		}
 
 		contentBox.Left = contentBox.Right + bs.Margin.Right
-		if !contentBox.HasBottom || contentBox.Bottom.LessThan(cellRect.Bottom) {
+		if contentBox.Bottom.LessThan(cellRect.Bottom) {
 			contentBox.Bottom = cellRect.Bottom
-			contentBox.HasBottom = true
 		}
 	}
 
 	borderBox.Bottom = contentBox.Bottom
 	borderBox.Bottom.Position += vertical(bs.Border) + vertical(bs.Padding)
-	borderBox.HasBottom = true
 	return borderBox, nil
 }
 

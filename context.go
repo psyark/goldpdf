@@ -58,11 +58,10 @@ func (rc *renderContextImpl) GetRenderContext(fn func(RenderContext) error) erro
 func (p *renderContextImpl) DrawTextSpan(page int, x, y float64, span *TextSpan) {
 	sw := p.GetSpanWidth(span)
 	rect := Rect{
-		Left:      x,
-		Right:     x + sw,
-		Top:       VerticalCoord{Page: page, Position: y},
-		Bottom:    VerticalCoord{Page: page, Position: y + span.Format.FontSize},
-		HasBottom: true,
+		Left:   x,
+		Right:  x + sw,
+		Top:    VerticalCoord{Page: page, Position: y},
+		Bottom: VerticalCoord{Page: page, Position: y + span.Format.FontSize},
 	}
 	p.DrawBox(rect, span.Format.BackgroundColor, span.Format.Border)
 	p.applyTextFormat(span.Format)
@@ -91,10 +90,6 @@ func (p *renderContextImpl) DrawLine(page int, x1, y1, x2, y2 float64, c color.C
 }
 
 func (p *renderContextImpl) DrawBox(rect Rect, bgColor color.Color, border Border) {
-	if !rect.HasBottom {
-		panic("rect has no bottom")
-	}
-
 	var borderRadius float64
 	if border, ok := border.(UniformBorder); ok {
 		borderRadius = border.Radius

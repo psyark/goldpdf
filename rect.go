@@ -5,7 +5,6 @@ package goldpdf
 type Rect struct {
 	Left, Right float64
 	Top, Bottom VerticalCoord
-	HasBottom   bool // TODO これでいいか検討
 }
 
 func (r Rect) Width() float64 {

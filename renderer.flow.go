@@ -112,6 +112,5 @@ func (r *Renderer) renderFlowElements(elements [][]FlowElement, mc MeasureContex
 		Page:     contentBox.Top.Page,
 		Position: contentBox.Top.Position + height,
 	}
-	contentBox.HasBottom = true
 	return contentBox, nil
 }
