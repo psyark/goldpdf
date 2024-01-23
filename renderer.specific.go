@@ -13,57 +13,56 @@ type columnFormat struct {
 	contentWidth float64
 }
 
-func (r *Renderer) renderListItem(n *ast.ListItem, borderBox RenderContext) (float64, error) {
-	h, err := r.renderGenericBlockNode(n, borderBox, nil)
+func (r *Renderer) renderListItem(n ast.Node, mc MeasureContext, borderBox Rect) (Rect, error) {
+	rect, err := r.renderGenericBlockNode(n, mc, borderBox)
 	if err != nil {
-		return 0, err
+		return rect, err
 	}
 
-	err = borderBox.Preflight(func() error {
-		bs, _ := r.style(n)
+	err = mc.GetRenderContext(func(rc RenderContext) error {
+		bs := r.blockStyle(n)
 		contentBox := borderBox.Shrink(bs.Border, bs.Padding) // ListItemのコンテンツボックス
 
 		// ListItemの最初のブロックノード
 		n2 := n.FirstChild()
-		bs2, _ := r.style(n2)
+		bs2 := r.blockStyle(n2)
 		contentBox2 := contentBox.Shrink(bs2.Margin, bs2.Border, bs2.Padding)
 
 		elements := r.getFlowElements(n2)
-		_, h := elements[0][0].size(borderBox.Target)
+		_, h := elements[0][0].size(mc)
 
 		if list, ok := n.Parent().(*ast.List); ok && list.IsOrdered() {
-			_, tf := r.style(n)
 			ts := &TextSpan{
-				Format: tf,
+				Format: r.textFormat(n),
 				Text:   fmt.Sprintf("%d.", countPrevSiblings(n)+1),
 			}
-			borderBox.Target.DrawTextSpan(contentBox2.X-15, contentBox2.Y, ts)
+			rc.DrawTextSpan(contentBox.Top.Page, contentBox2.Left-15, contentBox2.Top.Position, ts)
 		} else {
-			borderBox.Target.DrawBullet(contentBox2.X-10, contentBox2.Y+h/2, color.Black, 2)
+			rc.DrawBullet(contentBox.Top.Page, contentBox2.Left-10, contentBox2.Top.Position+h/2, color.Black, 2)
 		}
 
 		return nil
 	})
 	if err != nil {
-		return 0, err
+		return rect, err
 	}
 
-	return h, nil
+	return rect, nil
 }
 
-func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64, error) {
-	bs, _ := r.style(n)
+func (r *Renderer) renderTable(n *xast.Table, mc MeasureContext, borderBox Rect) (Rect, error) {
+	bs := r.blockStyle(n)
 
-	err := borderBox.Preflight(func() error {
-		h, err := r.renderTable(n, borderBox)
+	err := mc.GetRenderContext(func(rc RenderContext) error {
+		rect, err := r.renderTable(n, mc, borderBox)
 		if err != nil {
 			return err
 		}
-		borderBox.Target.DrawBox(borderBox.X, borderBox.Y, borderBox.W, h, bs.BackgroundColor, bs.Border)
+		rc.DrawBox(rect, bs.BackgroundColor, bs.Border)
 		return nil
 	})
 	if err != nil {
-		return 0, err
+		return Rect{}, err
 	}
 
 	columnFormats := make([]columnFormat, len(n.Alignments))
@@ -72,7 +71,7 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 		colIndex := 0
 		for col := row.FirstChild(); col != nil; col = col.NextSibling() {
 			elements := r.getFlowElements(col)
-			contentWidth := getNaturalWidth(elements, borderBox)
+			contentWidth := getNaturalWidth(elements, mc)
 			columnFormats[colIndex].contentWidth = math.Max(columnFormats[colIndex].contentWidth, contentWidth)
 			colIndex++
 		}
@@ -81,14 +80,14 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 	contentBox := borderBox.Shrink(bs.Border, bs.Padding)
 
 	totalWidth := 0.0
-	availableWidth := contentBox.W
+	availableWidth := contentBox.Right - contentBox.Left
 	if row := n.FirstChild(); row != nil {
 		// TableHeaderの水平成分を減らす
-		bs, _ := r.style(row)
+		bs := r.blockStyle(row)
 		availableWidth -= horizontal(bs.Margin) + horizontal(bs.Border) + horizontal(bs.Padding)
 		if col := row.FirstChild(); col != nil {
 			// TableCellの水平成分を減らす
-			bs, _ := r.style(col)
+			bs := r.blockStyle(col)
 			availableWidth -= (horizontal(bs.Margin) + horizontal(bs.Border) + horizontal(bs.Padding)) * float64(len(n.Alignments))
 		}
 	}
@@ -104,79 +103,73 @@ func (r *Renderer) renderTable(n *xast.Table, borderBox RenderContext) (float64,
 		}
 	}
 
-	height := 0.0
-
 	for row := n.FirstChild(); row != nil; row = row.NextSibling() {
 		switch row := row.(type) {
 		case *xast.TableHeader, *xast.TableRow:
-			bs, _ := r.style(row)
-			h, err := r.renderTableRow(row, contentBox.MoveDown(height).Shrink(bs.Margin), columnFormats)
+			bs := r.blockStyle(row)
+			rowRect, err := r.renderTableRow(row, mc, contentBox.Shrink(bs.Margin), columnFormats)
 			if err != nil {
-				return 0, err
+				return Rect{}, err
 			}
-			height += h
+			contentBox.Top = rowRect.Bottom
+			contentBox.Top.Position += vertical(bs.Margin)
 		}
 	}
-	height += horizontal(bs.Border) + horizontal(bs.Padding)
 
-	return height, nil
+	borderBox.Bottom = contentBox.Top
+	borderBox.Bottom.Position += horizontal(bs.Border) + horizontal(bs.Padding)
+	borderBox.HasBottom = true
+
+	return borderBox, nil
 }
 
-func (r *Renderer) renderTableRow(n ast.Node, borderBox RenderContext, columnFormats []columnFormat) (float64, error) {
+func (r *Renderer) renderTableRow(n ast.Node, mc MeasureContext, borderBox Rect, columnFormats []columnFormat) (Rect, error) {
 	switch n.Kind() {
 	case xast.KindTableHeader, xast.KindTableRow:
 	default:
-		return 0, fmt.Errorf("unsupported kind: %v", n.Kind())
+		return Rect{}, fmt.Errorf("unsupported kind: %v", n.Kind())
 	}
 
-	bs, _ := r.style(n)
+	bs := r.blockStyle(n)
 
-	options := &rgbnOption{}
-	err := borderBox.Preflight(func() error {
-		h, err := r.renderTableRow(n, borderBox, columnFormats)
+	err := mc.GetRenderContext(func(rc RenderContext) error {
+		rowRect, err := r.renderTableRow(n, mc, borderBox, columnFormats)
 		if err != nil {
 			return err
 		}
 
-		borderBox.Target.DrawBox(borderBox.X, borderBox.Y, borderBox.W, h, bs.BackgroundColor, bs.Border)
-		options.forceHeight = h - vertical(bs.Border) - vertical(bs.Padding)
+		rc.DrawBox(rowRect, bs.BackgroundColor, bs.Border)
+		borderBox.Bottom = rowRect.Bottom // ここで各テーブルセルの高さを行と一致させる
+		borderBox.HasBottom = true
 		return nil
 	})
 	if err != nil {
-		return 0, err
+		return Rect{}, err
 	}
 
 	contentBox := borderBox.Shrink(bs.Border, bs.Padding)
-	height := 0.0
 
 	for cell := n.FirstChild(); cell != nil; cell = cell.NextSibling() {
-		tf, _ := r.style(cell)
-		contentBox.W = columnFormats[countPrevSiblings(cell)].contentWidth + horizontal(tf.Border) + horizontal(tf.Padding)
+		bs := r.blockStyle(cell)
+		contentBox.Left += bs.Margin.Left
+		contentBox.Right = contentBox.Left + columnFormats[countPrevSiblings(cell)].contentWidth + horizontal(bs.Border) + horizontal(bs.Padding)
 
-		h, err := r.renderGenericBlockNode(cell, contentBox, options)
+		cellRect, err := r.renderGenericBlockNode(cell, mc, contentBox)
 		if err != nil {
-			return 0, err
+			return Rect{}, err
 		}
 
-		height = math.Max(height, h)
-		contentBox.X += contentBox.W
-	}
-
-	height += vertical(bs.Border) + vertical(bs.Padding)
-	return height, nil
-}
-
-func getNaturalWidth(elements [][]FlowElement, rc RenderContext) float64 {
-	width := 0.0
-	for _, line := range elements {
-		lineWidth := 0.0
-		for _, e := range line {
-			w, _ := e.size(rc.Target)
-			lineWidth += w
+		contentBox.Left = contentBox.Right + bs.Margin.Right
+		if !contentBox.HasBottom || contentBox.Bottom.LessThan(cellRect.Bottom) {
+			contentBox.Bottom = cellRect.Bottom
+			contentBox.HasBottom = true
 		}
-		width = math.Max(width, lineWidth)
 	}
-	return width
+
+	borderBox.Bottom = contentBox.Bottom
+	borderBox.Bottom.Position += vertical(bs.Border) + vertical(bs.Padding)
+	borderBox.HasBottom = true
+	return borderBox, nil
 }
 
 func countPrevSiblings(n ast.Node) int {

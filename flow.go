@@ -2,11 +2,12 @@ package goldpdf
 
 import (
 	"image"
+	"math"
 )
 
 type FlowElement interface {
-	size(pdf PDF) (float64, float64)
-	drawTo(x, y float64, pdf PDF) error
+	size(mc MeasureContext) (float64, float64)
+	drawTo(page int, x, y float64, rc RenderContext)
 }
 
 var (
@@ -19,13 +20,12 @@ type TextSpan struct {
 	Text   string
 }
 
-func (s *TextSpan) size(pdf PDF) (float64, float64) {
-	return pdf.GetSpanWidth(s), s.Format.FontSize
+func (s *TextSpan) size(mc MeasureContext) (float64, float64) {
+	return mc.GetSpanWidth(s), s.Format.FontSize
 }
 
-func (t *TextSpan) drawTo(x, y float64, pdf PDF) error {
-	pdf.DrawTextSpan(x, y, t)
-	return nil
+func (t *TextSpan) drawTo(page int, x, y float64, rc RenderContext) {
+	rc.DrawTextSpan(page, x, y, t)
 }
 
 type Image struct {
@@ -35,34 +35,47 @@ type Image struct {
 	data      []byte
 }
 
-func (i *Image) size(pdf PDF) (float64, float64) {
+func (i *Image) size(MeasureContext) (float64, float64) {
 	return float64(i.img.Bounds().Dx()), float64(i.img.Bounds().Dy())
 }
 
-func (i *Image) drawTo(x float64, y float64, pdf PDF) error {
-	pdf.DrawImage(x, y, i)
-	return nil
+func (i *Image) drawTo(page int, x float64, y float64, rc RenderContext) {
+	rc.DrawImage(page, x, y, i)
 }
 
-func SplitFirstLine(pdf PDF, elements [][]FlowElement, limitWidth float64) (first []FlowElement, rest [][]FlowElement) {
+func getNaturalWidth(elements [][]FlowElement, mc MeasureContext) float64 {
+	width := 0.0
+	for _, line := range elements {
+		lineWidth := 0.0
+		for _, e := range line {
+			w, _ := e.size(mc)
+			lineWidth += w
+		}
+		width = math.Max(width, lineWidth)
+	}
+	return width
+}
+
+// TODO 二番目の返り値必要？
+func splitFirstLine(elements [][]FlowElement, mc MeasureContext, limitWidth float64) (first []FlowElement, rest [][]FlowElement) {
 	rest = elements
 	width := 0.0
 
 	for len(rest) != 0 && len(rest[0]) != 0 && width < limitWidth {
 		switch e := rest[0][0].(type) {
 		case *TextSpan:
-			if sw := pdf.GetSpanWidth(e); sw <= limitWidth-width {
+			if sw := mc.GetSpanWidth(e); sw <= limitWidth-width {
 				first = append(first, e)
 				width += sw
 				rest[0] = rest[0][1:]
 			} else {
 				// 折返し
-				ss := pdf.GetSubSpan(e, limitWidth-width)
+				ss := mc.GetSubSpan(e, limitWidth-width)
 				if ss.Text == "" {
 					return // この行にこれ以上入らない
 				}
 				first = append(first, ss)
-				width += pdf.GetSpanWidth(ss)
+				width += mc.GetSpanWidth(ss)
 				rest[0][0] = &TextSpan{
 					Format: e.Format,
 					Text:   string([]rune(e.Text)[len([]rune(ss.Text)):]),
@@ -71,7 +84,7 @@ func SplitFirstLine(pdf PDF, elements [][]FlowElement, limitWidth float64) (firs
 
 		case *Image:
 			// 行が空の場合はlimitWidthを無視
-			w, _ := e.size(pdf)
+			w, _ := e.size(mc)
 			if len(first) == 0 || width+w <= limitWidth {
 				first = append(first, e)
 				width += w

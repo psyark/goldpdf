@@ -10,6 +10,8 @@ import (
 	"github.com/yuin/goldmark/renderer"
 )
 
+type PDFProvider func() *gofpdf.Fpdf
+
 type Renderer struct {
 	source      []byte
 	pdfProvider PDFProvider
@@ -19,7 +21,7 @@ type Renderer struct {
 
 func (r *Renderer) Render(w io.Writer, source []byte, n ast.Node) error {
 	if n.Type() != ast.TypeDocument {
-		return fmt.Errorf("想定しないノード")
+		return fmt.Errorf("called with a node other than Document: %s", n.Kind())
 	}
 
 	fpdf := r.pdfProvider()
@@ -30,17 +32,44 @@ func (r *Renderer) Render(w io.Writer, source []byte, n ast.Node) error {
 	lm, tm, rm, _ := fpdf.GetMargins()
 	pw, _ := fpdf.GetPageSize()
 
-	rc := RenderContext{X: lm, Y: tm, W: pw - lm - rm, Target: &pdfImpl{fpdf: fpdf}}
-
-	if _, err := r.renderBlockNode(n, rc); err != nil {
+	rect := Rect{
+		Left:  lm,
+		Right: pw - rm,
+		Top:   VerticalCoord{Page: 0, Position: tm},
+	}
+	if _, err := r.renderBlockNode(n, &renderContextImpl{fpdf: fpdf}, rect); err != nil {
 		return err
 	}
+
 	return fpdf.Output(w)
 }
 
-// AddOptions does nothing
-func (r *Renderer) AddOptions(options ...renderer.Option) {
+func (r *Renderer) blockStyleTextFormat(n ast.Node) (BlockStyle, TextFormat) {
+	ancestors := []ast.Node{}
+	for p := n; p != nil; p = p.Parent() {
+		ancestors = append(ancestors, p)
+	}
+
+	var bs BlockStyle
+	var tf TextFormat
+	for i := range ancestors {
+		bs, tf = r.styler.Style(ancestors[len(ancestors)-i-1], tf)
+	}
+	return bs, tf
 }
+
+func (r *Renderer) blockStyle(n ast.Node) BlockStyle {
+	bs, _ := r.blockStyleTextFormat(n)
+	return bs
+}
+
+func (r *Renderer) textFormat(n ast.Node) TextFormat {
+	_, tf := r.blockStyleTextFormat(n)
+	return tf
+}
+
+// AddOptions does nothing
+func (r *Renderer) AddOptions(options ...renderer.Option) {}
 
 type Option func(*Renderer)
 
@@ -55,8 +84,6 @@ func New(options ...Option) renderer.Renderer {
 	}
 	return r
 }
-
-type PDFProvider func() *gofpdf.Fpdf
 
 func WithPDFProvider(pdfProvider PDFProvider) Option {
 	return func(r *Renderer) { r.pdfProvider = pdfProvider }
