@@ -2,7 +2,6 @@ package goldpdf
 
 import (
 	"bytes"
-	"fmt"
 	"image/color"
 
 	"github.com/jung-kurt/gofpdf"
@@ -143,7 +142,6 @@ func (p *renderContextImpl) setPage(page int) {
 		p.fpdf.AddPage()
 	}
 	p.fpdf.SetPage(page)
-	fmt.Println(p.fpdf.PageNo(), page)
 }
 
 func (p *renderContextImpl) drawEdge(x1, y1, x2, y2 float64, edge BorderEdge) {

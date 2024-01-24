@@ -113,18 +113,30 @@ func capturePDF(pdfBytes []byte, bgColor color.Color) (image.Image, error) {
 	if err := mw.ReadImageBlob(pdfBytes); err != nil {
 		return nil, err
 	}
-	if err := mw.SetImageFormat("png"); err != nil {
-		return nil, err
+
+	var bg *image.RGBA
+
+	for i := 0; i < int(mw.GetNumberImages()); i++ {
+		mw.SetIteratorIndex(i)
+		if err := mw.SetImageFormat("png"); err != nil {
+			return nil, err
+		}
+		img, err := png.Decode(bytes.NewReader(mw.GetImageBlob()))
+		if err != nil {
+			return nil, err
+		}
+
+		if i == 0 {
+			rect := img.Bounds()
+			rect.Max.Y *= int(mw.GetNumberImages())
+
+			bg = image.NewRGBA(rect)
+			draw.Draw(bg, bg.Rect, image.NewUniform(bgColor), image.Point{}, draw.Over)
+		}
+
+		draw.Draw(bg, image.Rect(0, img.Bounds().Dy()*i, img.Bounds().Dx(), img.Bounds().Dy()*(i+1)), img, image.Point{}, draw.Over)
 	}
 
-	img, err := png.Decode(bytes.NewReader(mw.GetImageBlob()))
-	if err != nil {
-		return nil, err
-	}
-
-	bg := image.NewRGBA(img.Bounds())
-	draw.Draw(bg, bg.Rect, image.NewUniform(bgColor), image.Point{}, draw.Over)
-	draw.Draw(bg, bg.Rect, img, image.Point{}, draw.Over)
-
+	fmt.Println(bg.Rect)
 	return bg, nil
 }
