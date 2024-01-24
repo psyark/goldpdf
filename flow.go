@@ -3,6 +3,7 @@ package goldpdf
 import (
 	"image"
 	"math"
+	"strings"
 )
 
 // InlineElement は PDFに描画されるインラインの要素であり、テキストか画像の2種類があります
@@ -62,11 +63,7 @@ func (l *InlineElementsLines) AppendToLastLine(e ...InlineElement) {
 func (l InlineElementsLines) Width(mc MeasureContext) float64 {
 	width := 0.0
 	for _, line := range l {
-		lineWidth := 0.0
-		for _, e := range line {
-			w, _ := e.size(mc)
-			lineWidth += w
-		}
+		lineWidth, _ := getLineSize(mc, line)
 		width = math.Max(width, lineWidth)
 	}
 	return width
@@ -82,6 +79,16 @@ func (l InlineElementsLines) Wrap(mc MeasureContext, width float64) InlineElemen
 	return result
 }
 
+func getLineSize(mc MeasureContext, line []InlineElement) (float64, float64) {
+	var width, height float64
+	for _, e := range line {
+		w, h := e.size(mc)
+		width += w
+		height = math.Max(height, h)
+	}
+	return width, height
+}
+
 func wrapLine(mc MeasureContext, limitWidth float64, line []InlineElement) InlineElementsLines {
 	result := InlineElementsLines{}
 
@@ -90,21 +97,17 @@ func wrapLine(mc MeasureContext, limitWidth float64, line []InlineElement) Inlin
 	for len(rest) != 0 {
 		switch e := rest[0].(type) {
 		case *TextElement:
-			if ss := mc.GetSubSpan(e, limitWidth-width); ss.Text == "" {
+			if ss := mc.GetSubSpan(e, limitWidth-width); ss == nil {
 				result.AddLine()
 				width = 0
 				continue // この行にこれ以上入らない
-			} else if ss.Text == e.Text {
-				// TODO 下と共通化
-				result.AppendToLastLine(ss)
-				width += mc.GetSpanWidth(ss)
-				rest = rest[1:]
 			} else {
 				result.AppendToLastLine(ss)
 				width += mc.GetSpanWidth(ss)
-				rest[0] = &TextElement{
-					Format: e.Format,
-					Text:   string([]rune(e.Text)[len([]rune(ss.Text)):]),
+				if ss.Text == e.Text {
+					rest = rest[1:]
+				} else {
+					rest[0] = &TextElement{Format: e.Format, Text: strings.TrimPrefix(e.Text, ss.Text)}
 				}
 			}
 

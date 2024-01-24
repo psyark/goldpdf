@@ -2,6 +2,7 @@ package goldpdf
 
 import (
 	"bytes"
+	"fmt"
 	"image/color"
 
 	"github.com/jung-kurt/gofpdf"
@@ -13,6 +14,7 @@ var _ RenderContext = &renderContextImpl{}
 type MeasureContext interface {
 	GetSpanWidth(span *TextElement) float64
 	GetSubSpan(span *TextElement, width float64) *TextElement
+	GetPageVerticalBounds(page int) (float64, float64)
 	GetRenderContext(fn func(RenderContext) error) error
 }
 
@@ -36,16 +38,26 @@ func (p *renderContextImpl) GetSpanWidth(span *TextElement) float64 {
 
 func (p *renderContextImpl) GetSubSpan(span *TextElement, width float64) *TextElement {
 	p.applyTextFormat(span.Format)
-
-	// SplitText issue
-	width += span.Format.FontSize / 2
+	width += span.Format.FontSize / 2 // SplitText issue
 
 	lines := p.fpdf.SplitText(span.Text, width)
+	if lines[0] == "" {
+		return nil
+	}
+
 	ss := &TextElement{Text: lines[0], Format: span.Format}
 	if p.GetSpanWidth(ss) > width { // SplitText issue
-		return &TextElement{Text: "", Format: span.Format}
+		return nil
 	}
+
 	return ss
+}
+
+func (p *renderContextImpl) GetPageVerticalBounds(page int) (float64, float64) {
+	p.setPage(page)
+	_, h := p.fpdf.GetPageSize()
+	_, tm, _, bm := p.fpdf.GetMargins()
+	return tm, h - bm
 }
 
 // GetRenderContext はレンダリングコンテキストの取得をリクエストします
@@ -63,10 +75,10 @@ func (rc *renderContextImpl) GetRenderContext(fn func(RenderContext) error) erro
 }
 
 func (p *renderContextImpl) DrawTextSpan(page int, x, y float64, span *TextElement) {
-	sw := p.GetSpanWidth(span)
+	p.setPage(page)
 	rect := Rect{
 		Left:   x,
-		Right:  x + sw,
+		Right:  x + p.GetSpanWidth(span),
 		Top:    VerticalCoord{Page: page, Position: y},
 		Bottom: VerticalCoord{Page: page, Position: y + span.Format.FontSize},
 	}
@@ -76,6 +88,7 @@ func (p *renderContextImpl) DrawTextSpan(page int, x, y float64, span *TextEleme
 }
 
 func (p *renderContextImpl) DrawImage(page int, x, y float64, img *ImageElement) {
+	p.setPage(page)
 	p.fpdf.RegisterImageOptionsReader(img.name, gofpdf.ImageOptions{ImageType: img.imageType}, bytes.NewReader(img.data))
 	w, h := img.size(p)
 	p.fpdf.ImageOptions(img.name, x, y, w, h, false, gofpdf.ImageOptions{}, 0, "")
@@ -83,11 +96,13 @@ func (p *renderContextImpl) DrawImage(page int, x, y float64, img *ImageElement)
 
 func (p *renderContextImpl) DrawBullet(page int, x, y float64, c color.Color, r float64) {
 	if _, _, _, ca := c.RGBA(); ca != 0 && r != 0 {
+		p.setPage(page)
 		p.colorHelper(c, p.fpdf.SetFillColor)
 		p.fpdf.Circle(x, y, r, "F")
 	}
 }
 
+// TODO 複数ページに跨る実装
 func (p *renderContextImpl) DrawBox(rect Rect, bgColor color.Color, border Border) {
 	var borderRadius float64
 	if border, ok := border.(UniformBorder); ok {
@@ -122,6 +137,15 @@ func (p *renderContextImpl) DrawBox(rect Rect, bgColor color.Color, border Borde
 		p.drawEdge(x, y+h-border.Bottom.Width/2, x+w, y+h-border.Bottom.Width/2, border.Bottom)
 	}
 }
+
+func (p *renderContextImpl) setPage(page int) {
+	for page > p.fpdf.PageCount() {
+		p.fpdf.AddPage()
+	}
+	p.fpdf.SetPage(page)
+	fmt.Println(p.fpdf.PageNo(), page)
+}
+
 func (p *renderContextImpl) drawEdge(x1, y1, x2, y2 float64, edge BorderEdge) {
 	if edge.Color != nil && edge.Width != 0 {
 		if _, _, _, ca := edge.Color.RGBA(); ca != 0 {

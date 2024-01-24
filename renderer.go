@@ -35,7 +35,7 @@ func (r *Renderer) Render(w io.Writer, source []byte, n ast.Node) error {
 	rect := Rect{
 		Left:  lm,
 		Right: pw - rm,
-		Top:   VerticalCoord{Page: 0, Position: tm},
+		Top:   VerticalCoord{Page: 1, Position: tm},
 	}
 	if _, err := r.renderBlockNode(n, &renderContextImpl{fpdf: fpdf}, rect); err != nil {
 		return err

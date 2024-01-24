@@ -1,7 +1,6 @@
 package goldpdf
 
 import (
-	"math"
 	"strings"
 
 	"github.com/yuin/goldmark/ast"
@@ -61,21 +60,28 @@ func (r *Renderer) getFlowElements(n ast.Node) InlineElementsLines {
 
 // renderInlineElements draws inline elements inside the contentBox and returns a content box with the actual drawn height.
 func (r *Renderer) renderInlineElements(lines InlineElementsLines, mc MeasureContext, contentBox Rect, align xast.Alignment) (Rect, error) {
-	height := 0.0
+	result := contentBox
 
-	for _, line := range lines.Wrap(mc, contentBox.Width()) {
-		var lineWidth, lineHeight float64
-		for _, e := range line {
-			w, h := e.size(mc)
-			lineWidth += w
-			lineHeight = math.Max(lineHeight, h)
-		}
+	for i, line := range lines.Wrap(mc, contentBox.Width()) {
+		lineWidth, lineHeight := getLineSize(mc, line)
 
 		// TODO このフローが現在のページに収まらない場合に改ページする
+		pageTop, pageBottom := mc.GetPageVerticalBounds(contentBox.Top.Page)
+		if contentBox.Top.Position+lineHeight > pageBottom {
+			contentBox.Top.Page++
+			contentBox.Top.Position = pageTop
+		}
+
+		if i == 0 {
+			result.Top = contentBox.Top
+		}
+
+		result.Bottom = contentBox.Top
+		result.Bottom.Position += lineHeight
 
 		err := mc.GetRenderContext(func(rc RenderContext) error {
 			x := contentBox.Left
-			y := contentBox.Top.Position + height
+			y := contentBox.Top.Position
 
 			switch align {
 			case xast.AlignRight:
@@ -95,12 +101,8 @@ func (r *Renderer) renderInlineElements(lines InlineElementsLines, mc MeasureCon
 			return Rect{}, err
 		}
 
-		height += lineHeight
+		contentBox.Top.Position += lineHeight
 	}
 
-	contentBox.Bottom = VerticalCoord{
-		Page:     contentBox.Top.Page,
-		Position: contentBox.Top.Position + height,
-	}
-	return contentBox, nil
+	return result, nil
 }
