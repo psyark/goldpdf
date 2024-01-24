@@ -56,7 +56,6 @@ func getNaturalWidth(elements [][]FlowElement, mc MeasureContext) float64 {
 	return width
 }
 
-// TODO 二番目の返り値必要？
 func splitFirstLine(elements [][]FlowElement, mc MeasureContext, limitWidth float64) (first []FlowElement, rest [][]FlowElement) {
 	rest = elements
 	width := 0.0
