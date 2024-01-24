@@ -64,16 +64,13 @@ func splitFirstLine(elements [][]FlowElement, mc MeasureContext, limitWidth floa
 	for len(rest) != 0 && len(rest[0]) != 0 && width < limitWidth {
 		switch e := rest[0][0].(type) {
 		case *TextSpan:
-			if sw := mc.GetSpanWidth(e); sw <= limitWidth-width {
+			if ss := mc.GetSubSpan(e, limitWidth-width); ss.Text == "" {
+				return // この行にこれ以上入らない
+			} else if ss.Text == e.Text {
 				first = append(first, e)
-				width += sw
+				width += mc.GetSpanWidth(e)
 				rest[0] = rest[0][1:]
 			} else {
-				// 折返し
-				ss := mc.GetSubSpan(e, limitWidth-width)
-				if ss.Text == "" {
-					return // この行にこれ以上入らない
-				}
 				first = append(first, ss)
 				width += mc.GetSpanWidth(ss)
 				rest[0][0] = &TextSpan{

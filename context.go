@@ -21,7 +21,6 @@ type RenderContext interface {
 	DrawTextSpan(page int, x, y float64, span *TextSpan)
 	DrawImage(page int, x, y float64, img *Image)
 	DrawBullet(page int, x, y float64, c color.Color, r float64)
-	DrawLine(page int, x1, y1, x2, y2 float64, c color.Color, w float64)
 	DrawBox(rect Rect, bgColor color.Color, border Border)
 }
 
@@ -37,8 +36,16 @@ func (p *renderContextImpl) GetSpanWidth(span *TextSpan) float64 {
 
 func (p *renderContextImpl) GetSubSpan(span *TextSpan, width float64) *TextSpan {
 	p.applyTextFormat(span.Format)
+
+	// SplitText issue
+	width += span.Format.FontSize / 2
+
 	lines := p.fpdf.SplitText(span.Text, width)
-	return &TextSpan{Text: lines[0], Format: span.Format}
+	ss := &TextSpan{Text: lines[0], Format: span.Format}
+	if p.GetSpanWidth(ss) > width { // SplitText issue
+		return &TextSpan{Text: "", Format: span.Format}
+	}
+	return ss
 }
 
 // GetRenderContext はレンダリングコンテキストの取得をリクエストします
@@ -78,14 +85,6 @@ func (p *renderContextImpl) DrawBullet(page int, x, y float64, c color.Color, r 
 	if _, _, _, ca := c.RGBA(); ca != 0 && r != 0 {
 		p.colorHelper(c, p.fpdf.SetFillColor)
 		p.fpdf.Circle(x, y, r, "F")
-	}
-}
-
-func (p *renderContextImpl) DrawLine(page int, x1, y1, x2, y2 float64, c color.Color, w float64) {
-	if _, _, _, ca := c.RGBA(); ca != 0 && w != 0 {
-		p.fpdf.SetLineWidth(w)
-		p.colorHelper(c, p.fpdf.SetDrawColor)
-		p.fpdf.Line(x1, y1, x2, y2)
 	}
 }
 

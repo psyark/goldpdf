@@ -73,10 +73,6 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, mc MeasureContext, borderB
 		borderBox.Bottom = contentBox.Top
 		borderBox.Bottom.Position += bottom(bs.Padding) + bottom(bs.Border)
 
-		if n.Kind() == ast.KindBlockquote {
-			fmt.Println("bb1", borderBox)
-		}
-
 		return borderBox, nil
 	}
 }

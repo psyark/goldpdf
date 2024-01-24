@@ -2,6 +2,7 @@ package goldpdf
 
 import (
 	"math"
+	"strings"
 
 	"github.com/yuin/goldmark/ast"
 	xast "github.com/yuin/goldmark/extension/ast"
@@ -26,7 +27,7 @@ func (r *Renderer) getFlowElements(n ast.Node) [][]FlowElement {
 		lines := n.Lines()
 		for i := 0; i < lines.Len(); i++ {
 			line := lines.At(i)
-			ts := &TextSpan{Text: string(line.Value(r.source)), Format: tf}
+			ts := &TextSpan{Text: strings.TrimRight(string(line.Value(r.source)), "\n"), Format: tf}
 			addElementsToLastLine(ts)
 			elements = append(elements, []FlowElement{}) // HardLineBreak
 		}

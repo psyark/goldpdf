@@ -21,11 +21,12 @@ var (
 )
 
 type ImageLoader interface {
-	LoadImage(string) *Image
+	LoadImage(string) *Image // TODO error
 }
 
 type DefaultImageLoader struct {
 	cache map[string]*Image
+	// TODO 動作モード（エラートレラントでaltを表示するか、呼び出し元にエラーを返すか）
 }
 
 func (il *DefaultImageLoader) LoadImage(src string) *Image {
