@@ -112,12 +112,12 @@ func (r *Renderer) renderTable(n *xast.Table, mc MeasureContext, borderBox Rect)
 				return Rect{}, err
 			}
 			contentBox.Top = rowRect.Bottom
-			contentBox.Top.Position += vertical(bs.Margin)
+			contentBox.Top.Position += bottom(bs.Margin)
 		}
 	}
 
 	borderBox.Bottom = contentBox.Top
-	borderBox.Bottom.Position += horizontal(bs.Border) + horizontal(bs.Padding)
+	borderBox.Bottom.Position += bottom(bs.Border) + bottom(bs.Padding)
 
 	return borderBox, nil
 }
@@ -164,7 +164,7 @@ func (r *Renderer) renderTableRow(n ast.Node, mc MeasureContext, borderBox Rect,
 	}
 
 	borderBox.Bottom = contentBox.Bottom
-	borderBox.Bottom.Position += vertical(bs.Border) + vertical(bs.Padding)
+	borderBox.Bottom.Position += bottom(bs.Border) + bottom(bs.Padding)
 	return borderBox, nil
 }
 
