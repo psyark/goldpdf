@@ -5,47 +5,63 @@ import (
 	"math"
 )
 
-type FlowElement interface {
+// InlineElement は PDFに描画されるインラインの要素であり、テキストか画像の2種類があります
+type InlineElement interface {
 	size(mc MeasureContext) (float64, float64)
-	drawTo(page int, x, y float64, rc RenderContext)
+	drawTo(rc RenderContext, page int, x, y float64)
 }
 
 var (
-	_ FlowElement = &TextSpan{}
-	_ FlowElement = &Image{}
+	_ InlineElement = &TextElement{}
+	_ InlineElement = &ImageElement{}
 )
 
-type TextSpan struct {
+// TextElement は、単一のテキストフォーマットが設定されたテキストを持つインライン要素です
+type TextElement struct {
 	Format TextFormat
 	Text   string
 }
 
-func (s *TextSpan) size(mc MeasureContext) (float64, float64) {
+func (s *TextElement) size(mc MeasureContext) (float64, float64) {
 	return mc.GetSpanWidth(s), s.Format.FontSize
 }
 
-func (t *TextSpan) drawTo(page int, x, y float64, rc RenderContext) {
+func (t *TextElement) drawTo(rc RenderContext, page int, x, y float64) {
 	rc.DrawTextSpan(page, x, y, t)
 }
 
-type Image struct {
+// ImageElement は、単一の画像です
+type ImageElement struct {
 	name      string
 	imageType string
 	img       image.Image
 	data      []byte
 }
 
-func (i *Image) size(MeasureContext) (float64, float64) {
+func (i *ImageElement) size(MeasureContext) (float64, float64) {
 	return float64(i.img.Bounds().Dx()), float64(i.img.Bounds().Dy())
 }
 
-func (i *Image) drawTo(page int, x float64, y float64, rc RenderContext) {
+func (i *ImageElement) drawTo(rc RenderContext, page int, x float64, y float64) {
 	rc.DrawImage(page, x, y, i)
 }
 
-func getNaturalWidth(elements [][]FlowElement, mc MeasureContext) float64 {
+type InlineElementsLines [][]InlineElement
+
+func (l *InlineElementsLines) AddLine(line ...InlineElement) {
+	*l = append(*l, line)
+}
+func (l *InlineElementsLines) AppendToLastLine(e ...InlineElement) {
+	if len(*l) == 0 {
+		l.AddLine()
+	}
+	i := len(*l) - 1
+	(*l)[i] = append((*l)[i], e...)
+}
+
+func (l InlineElementsLines) Width(mc MeasureContext) float64 {
 	width := 0.0
-	for _, line := range elements {
+	for _, line := range l {
 		lineWidth := 0.0
 		for _, e := range line {
 			w, _ := e.size(mc)
@@ -56,45 +72,56 @@ func getNaturalWidth(elements [][]FlowElement, mc MeasureContext) float64 {
 	return width
 }
 
-func splitFirstLine(elements [][]FlowElement, mc MeasureContext, limitWidth float64) (first []FlowElement, rest [][]FlowElement) {
-	rest = elements
-	width := 0.0
+func (l InlineElementsLines) Wrap(mc MeasureContext, width float64) InlineElementsLines {
+	result := InlineElementsLines{}
+	for _, line := range l {
+		for _, wrappedLine := range wrapLine(mc, width, line) {
+			result.AddLine(wrappedLine...)
+		}
+	}
+	return result
+}
 
-	for len(rest) != 0 && len(rest[0]) != 0 && width < limitWidth {
-		switch e := rest[0][0].(type) {
-		case *TextSpan:
+func wrapLine(mc MeasureContext, limitWidth float64, line []InlineElement) InlineElementsLines {
+	result := InlineElementsLines{}
+
+	width := 0.0
+	rest := append([]InlineElement{}, line...)
+	for len(rest) != 0 {
+		switch e := rest[0].(type) {
+		case *TextElement:
 			if ss := mc.GetSubSpan(e, limitWidth-width); ss.Text == "" {
-				return // この行にこれ以上入らない
+				result.AddLine()
+				width = 0
+				continue // この行にこれ以上入らない
 			} else if ss.Text == e.Text {
-				first = append(first, e)
-				width += mc.GetSpanWidth(e)
-				rest[0] = rest[0][1:]
-			} else {
-				first = append(first, ss)
+				// TODO 下と共通化
+				result.AppendToLastLine(ss)
 				width += mc.GetSpanWidth(ss)
-				rest[0][0] = &TextSpan{
+				rest = rest[1:]
+			} else {
+				result.AppendToLastLine(ss)
+				width += mc.GetSpanWidth(ss)
+				rest[0] = &TextElement{
 					Format: e.Format,
 					Text:   string([]rune(e.Text)[len([]rune(ss.Text)):]),
 				}
 			}
 
-		case *Image:
+		case *ImageElement:
 			// 行が空の場合はlimitWidthを無視
 			w, _ := e.size(mc)
-			if len(first) == 0 || width+w <= limitWidth {
-				first = append(first, e)
+			if width == 0 || width+w <= limitWidth {
+				result.AppendToLastLine(e)
 				width += w
-				rest[0] = rest[0][1:]
+				rest = rest[1:]
 			} else {
-				return // これ以上入らないので改行
+				result.AddLine()
+				width = 0
+				continue // これ以上入らないので改行
 			}
 		}
 	}
 
-	if len(rest[0]) == 0 {
-		rest = rest[1:]
-		return
-	}
-
-	return
+	return result
 }

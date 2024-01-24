@@ -21,17 +21,17 @@ var (
 )
 
 type ImageLoader interface {
-	LoadImage(string) *Image // TODO error
+	LoadImage(string) *ImageElement // TODO error
 }
 
 type DefaultImageLoader struct {
-	cache map[string]*Image
+	cache map[string]*ImageElement
 	// TODO 動作モード（エラートレラントでaltを表示するか、呼び出し元にエラーを返すか）
 }
 
-func (il *DefaultImageLoader) LoadImage(src string) *Image {
+func (il *DefaultImageLoader) LoadImage(src string) *ImageElement {
 	if il.cache == nil {
-		il.cache = map[string]*Image{}
+		il.cache = map[string]*ImageElement{}
 	}
 
 	if img, ok := il.cache[src]; ok {
@@ -115,7 +115,7 @@ func (il *DefaultImageLoader) registerBytes(src string, mimeType string, data []
 	}
 
 	name := strconv.Itoa(len(il.cache))
-	il.cache[src] = &Image{
+	il.cache[src] = &ImageElement{
 		name:      name,
 		imageType: imgType,
 		img:       img,

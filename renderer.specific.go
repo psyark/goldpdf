@@ -9,10 +9,6 @@ import (
 	xast "github.com/yuin/goldmark/extension/ast"
 )
 
-type columnFormat struct {
-	contentWidth float64
-}
-
 func (r *Renderer) renderListItem(n ast.Node, mc MeasureContext, borderBox Rect) (Rect, error) {
 	rect, err := r.renderGenericBlockNode(n, mc, borderBox, false)
 	if err != nil {
@@ -32,7 +28,7 @@ func (r *Renderer) renderListItem(n ast.Node, mc MeasureContext, borderBox Rect)
 		_, h := elements[0][0].size(mc)
 
 		if list, ok := n.Parent().(*ast.List); ok && list.IsOrdered() {
-			ts := &TextSpan{
+			ts := &TextElement{
 				Format: r.textFormat(n),
 				Text:   fmt.Sprintf("%d.", countPrevSiblings(n)+1),
 			}
@@ -65,14 +61,13 @@ func (r *Renderer) renderTable(n *xast.Table, mc MeasureContext, borderBox Rect)
 		return Rect{}, err
 	}
 
-	columnFormats := make([]columnFormat, len(n.Alignments))
+	columnContentWidth := make([]float64, len(n.Alignments))
 
 	for row := n.FirstChild(); row != nil; row = row.NextSibling() {
 		colIndex := 0
 		for col := row.FirstChild(); col != nil; col = col.NextSibling() {
 			elements := r.getFlowElements(col)
-			contentWidth := getNaturalWidth(elements, mc)
-			columnFormats[colIndex].contentWidth = math.Max(columnFormats[colIndex].contentWidth, contentWidth)
+			columnContentWidth[colIndex] = math.Max(columnContentWidth[colIndex], elements.Width(mc))
 			colIndex++
 		}
 	}
@@ -92,14 +87,14 @@ func (r *Renderer) renderTable(n *xast.Table, mc MeasureContext, borderBox Rect)
 		}
 	}
 
-	for _, cf := range columnFormats {
-		totalWidth += cf.contentWidth
+	for _, ccw := range columnContentWidth {
+		totalWidth += ccw
 	}
 	// 列の最大幅がavailableWidthを超過するなら
 	if totalWidth > availableWidth {
 		// 列の最大幅を均等倍率で縮小する
-		for i := range columnFormats {
-			columnFormats[i].contentWidth *= availableWidth / totalWidth
+		for i := range columnContentWidth {
+			columnContentWidth[i] *= availableWidth / totalWidth
 		}
 	}
 
@@ -107,7 +102,7 @@ func (r *Renderer) renderTable(n *xast.Table, mc MeasureContext, borderBox Rect)
 		switch row := row.(type) {
 		case *xast.TableHeader, *xast.TableRow:
 			bs := r.blockStyle(row)
-			rowRect, err := r.renderTableRow(row, mc, contentBox.Shrink(bs.Margin), columnFormats)
+			rowRect, err := r.renderTableRow(row, mc, contentBox.Shrink(bs.Margin), columnContentWidth)
 			if err != nil {
 				return Rect{}, err
 			}
@@ -122,7 +117,7 @@ func (r *Renderer) renderTable(n *xast.Table, mc MeasureContext, borderBox Rect)
 	return borderBox, nil
 }
 
-func (r *Renderer) renderTableRow(n ast.Node, mc MeasureContext, borderBox Rect, columnFormats []columnFormat) (Rect, error) {
+func (r *Renderer) renderTableRow(n ast.Node, mc MeasureContext, borderBox Rect, columnContentWidth []float64) (Rect, error) {
 	switch n.Kind() {
 	case xast.KindTableHeader, xast.KindTableRow:
 	default:
@@ -132,7 +127,7 @@ func (r *Renderer) renderTableRow(n ast.Node, mc MeasureContext, borderBox Rect,
 	bs := r.blockStyle(n)
 
 	err := mc.GetRenderContext(func(rc RenderContext) error {
-		rowRect, err := r.renderTableRow(n, mc, borderBox, columnFormats)
+		rowRect, err := r.renderTableRow(n, mc, borderBox, columnContentWidth)
 		if err != nil {
 			return err
 		}
@@ -150,7 +145,7 @@ func (r *Renderer) renderTableRow(n ast.Node, mc MeasureContext, borderBox Rect,
 	for cell := n.FirstChild(); cell != nil; cell = cell.NextSibling() {
 		bs := r.blockStyle(cell)
 		contentBox.Left += bs.Margin.Left
-		contentBox.Right = contentBox.Left + columnFormats[countPrevSiblings(cell)].contentWidth + horizontal(bs.Border) + horizontal(bs.Padding)
+		contentBox.Right = contentBox.Left + columnContentWidth[countPrevSiblings(cell)] + horizontal(bs.Border) + horizontal(bs.Padding)
 
 		cellRect, err := r.renderGenericBlockNode(cell, mc, contentBox, true)
 		if err != nil {

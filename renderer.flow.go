@@ -11,15 +11,8 @@ import (
 // getFlowElements retrieves the FlowElement belonging to the specified node.
 // Belonging means "a descendant inline node of the node and not a descendant of a child block node of the node."
 // The result is a slice of a slice of a FlowElement, where the outer slice represents a break by a HardLineBreak.
-func (r *Renderer) getFlowElements(n ast.Node) [][]FlowElement {
-	elements := [][]FlowElement{}
-
-	addElementsToLastLine := func(e ...FlowElement) {
-		if len(elements) == 0 {
-			elements = append(elements, []FlowElement{})
-		}
-		elements[len(elements)-1] = append(elements[len(elements)-1], e...)
-	}
+func (r *Renderer) getFlowElements(n ast.Node) InlineElementsLines {
+	iels := InlineElementsLines{}
 
 	switch n := n.(type) {
 	case *ast.CodeBlock, *ast.FencedCodeBlock:
@@ -27,54 +20,50 @@ func (r *Renderer) getFlowElements(n ast.Node) [][]FlowElement {
 		lines := n.Lines()
 		for i := 0; i < lines.Len(); i++ {
 			line := lines.At(i)
-			ts := &TextSpan{Text: strings.TrimRight(string(line.Value(r.source)), "\n"), Format: tf}
-			addElementsToLastLine(ts)
-			elements = append(elements, []FlowElement{}) // HardLineBreak
+			ts := &TextElement{Text: strings.TrimRight(string(line.Value(r.source)), "\n"), Format: tf}
+			iels.AppendToLastLine(ts)
+			iels.AddLine()
 		}
 	case *ast.AutoLink:
 		tf := r.textFormat(n)
-		ts := &TextSpan{Format: tf, Text: string(n.URL(r.source))}
-		addElementsToLastLine(ts)
+		ts := &TextElement{Format: tf, Text: string(n.URL(r.source))}
+		iels.AppendToLastLine(ts)
 	case *ast.Text:
 		tf := r.textFormat(n)
-		ts := &TextSpan{Format: tf, Text: string(n.Text(r.source))}
-		addElementsToLastLine(ts)
+		ts := &TextElement{Format: tf, Text: string(n.Text(r.source))}
+		iels.AppendToLastLine(ts)
 		if n.HardLineBreak() {
-			elements = append(elements, []FlowElement{}) // HardLineBreak
+			iels.AddLine()
 		}
 	case *ast.Image:
 		img := r.imageLoader.LoadImage(string(n.Destination))
 		if img != nil {
 			// If the image can be retrieved, ignore descendants (alt text).
-			addElementsToLastLine(img)
-			return elements
+			iels.AppendToLastLine(img)
+			return iels
 		} else {
 			e := r.getFlowElements(n)
-			addElementsToLastLine(e[0]...)
-			elements = append(elements, e[1:]...)
+			iels.AppendToLastLine(e[0]...)
+			iels = append(iels, e[1:]...)
 		}
 	}
 
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
 		if c.Type() == ast.TypeInline {
 			e := r.getFlowElements(c)
-			addElementsToLastLine(e[0]...)
-			elements = append(elements, e[1:]...)
+			iels.AppendToLastLine(e[0]...)
+			iels = append(iels, e[1:]...)
 		}
 	}
 
-	return elements
+	return iels
 }
 
-// renderFlowElements draws a text flow inside the contentBox and returns a content box with the actual drawn height.
-func (r *Renderer) renderFlowElements(elements [][]FlowElement, mc MeasureContext, contentBox Rect, align xast.Alignment) (Rect, error) {
+// renderInlineElements draws inline elements inside the contentBox and returns a content box with the actual drawn height.
+func (r *Renderer) renderInlineElements(lines InlineElementsLines, mc MeasureContext, contentBox Rect, align xast.Alignment) (Rect, error) {
 	height := 0.0
-	for len(elements) != 0 {
-		line, rest := splitFirstLine(elements, mc, contentBox.Width())
-		if len(line) == 0 {
-			break
-		}
 
+	for _, line := range lines.Wrap(mc, contentBox.Width()) {
 		var lineWidth, lineHeight float64
 		for _, e := range line {
 			w, h := e.size(mc)
@@ -82,7 +71,7 @@ func (r *Renderer) renderFlowElements(elements [][]FlowElement, mc MeasureContex
 			lineHeight = math.Max(lineHeight, h)
 		}
 
-		elements = rest
+		// TODO このフローが現在のページに収まらない場合に改ページする
 
 		err := mc.GetRenderContext(func(rc RenderContext) error {
 			x := contentBox.Left
@@ -97,7 +86,7 @@ func (r *Renderer) renderFlowElements(elements [][]FlowElement, mc MeasureContex
 
 			for _, e := range line {
 				w, h := e.size(mc)
-				e.drawTo(contentBox.Top.Page, x, y+lineHeight-h, rc)
+				e.drawTo(rc, contentBox.Top.Page, x, y+lineHeight-h)
 				x += w
 			}
 			return nil

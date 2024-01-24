@@ -11,15 +11,15 @@ var _ RenderContext = &renderContextImpl{}
 
 // MeasureContext provides a way to measure the dimensions of the drawing element.
 type MeasureContext interface {
-	GetSpanWidth(span *TextSpan) float64
-	GetSubSpan(span *TextSpan, width float64) *TextSpan
+	GetSpanWidth(span *TextElement) float64
+	GetSubSpan(span *TextElement, width float64) *TextElement
 	GetRenderContext(fn func(RenderContext) error) error
 }
 
 type RenderContext interface {
 	MeasureContext
-	DrawTextSpan(page int, x, y float64, span *TextSpan)
-	DrawImage(page int, x, y float64, img *Image)
+	DrawTextSpan(page int, x, y float64, span *TextElement)
+	DrawImage(page int, x, y float64, img *ImageElement)
 	DrawBullet(page int, x, y float64, c color.Color, r float64)
 	DrawBox(rect Rect, bgColor color.Color, border Border)
 }
@@ -29,21 +29,21 @@ type renderContextImpl struct {
 	inRendering bool
 }
 
-func (p *renderContextImpl) GetSpanWidth(span *TextSpan) float64 {
+func (p *renderContextImpl) GetSpanWidth(span *TextElement) float64 {
 	p.applyTextFormat(span.Format)
 	return p.fpdf.GetStringWidth(span.Text)
 }
 
-func (p *renderContextImpl) GetSubSpan(span *TextSpan, width float64) *TextSpan {
+func (p *renderContextImpl) GetSubSpan(span *TextElement, width float64) *TextElement {
 	p.applyTextFormat(span.Format)
 
 	// SplitText issue
 	width += span.Format.FontSize / 2
 
 	lines := p.fpdf.SplitText(span.Text, width)
-	ss := &TextSpan{Text: lines[0], Format: span.Format}
+	ss := &TextElement{Text: lines[0], Format: span.Format}
 	if p.GetSpanWidth(ss) > width { // SplitText issue
-		return &TextSpan{Text: "", Format: span.Format}
+		return &TextElement{Text: "", Format: span.Format}
 	}
 	return ss
 }
@@ -62,7 +62,7 @@ func (rc *renderContextImpl) GetRenderContext(fn func(RenderContext) error) erro
 	return nil
 }
 
-func (p *renderContextImpl) DrawTextSpan(page int, x, y float64, span *TextSpan) {
+func (p *renderContextImpl) DrawTextSpan(page int, x, y float64, span *TextElement) {
 	sw := p.GetSpanWidth(span)
 	rect := Rect{
 		Left:   x,
@@ -75,7 +75,7 @@ func (p *renderContextImpl) DrawTextSpan(page int, x, y float64, span *TextSpan)
 	p.fpdf.Text(x, y+span.Format.FontSize, span.Text)
 }
 
-func (p *renderContextImpl) DrawImage(page int, x, y float64, img *Image) {
+func (p *renderContextImpl) DrawImage(page int, x, y float64, img *ImageElement) {
 	p.fpdf.RegisterImageOptionsReader(img.name, gofpdf.ImageOptions{ImageType: img.imageType}, bytes.NewReader(img.data))
 	w, h := img.size(p)
 	p.fpdf.ImageOptions(img.name, x, y, w, h, false, gofpdf.ImageOptions{}, 0, "")
