@@ -103,15 +103,29 @@ func (p *renderContextImpl) DrawBullet(page int, x, y float64, c color.Color, r 
 
 // TODO 複数ページに跨る実装
 func (p *renderContextImpl) DrawBox(rect Rect, bgColor color.Color, border Border) {
+	x := rect.Left
+	w := rect.Right - rect.Left
+
+	for page := rect.Top.Page; page <= rect.Bottom.Page; page++ {
+		y, b := p.GetPageVerticalBounds(page)
+		if page == rect.Top.Page {
+			y = rect.Top.Position
+		}
+		if page == rect.Bottom.Page {
+			b = rect.Bottom.Position
+		}
+		h := b - y
+		p.drawBoxInPage(page, x, y, w, h, bgColor, border)
+	}
+}
+
+func (p *renderContextImpl) drawBoxInPage(page int, x, y, w, h float64, bgColor color.Color, border Border) {
+	p.setPage(page)
+
 	var borderRadius float64
 	if border, ok := border.(UniformBorder); ok {
 		borderRadius = border.Radius
 	}
-
-	x := rect.Left
-	y := rect.Top.Position
-	w := rect.Right - rect.Left
-	h := rect.Bottom.Position - rect.Top.Position
 
 	if bgColor != nil {
 		if _, _, _, ca := bgColor.RGBA(); ca != 0 {
