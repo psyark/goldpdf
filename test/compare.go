@@ -17,7 +17,7 @@ func CompareAndOutputResults(pdfBytes []byte, pdfName, wantName, gotName, diffNa
 		return err
 	}
 
-	got, err := capturePDF(pdfBytes, color.White)
+	got, err := SnapshotPDF(pdfBytes, color.White)
 	if err != nil {
 		return err
 	}
@@ -34,6 +34,7 @@ func CompareAndOutputResults(pdfBytes []byte, pdfName, wantName, gotName, diffNa
 		if err != nil {
 			return err
 		}
+
 		if diff != nil {
 			f, err := os.OpenFile(diffName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 			if err != nil {
@@ -78,22 +79,18 @@ func CompareImages(wantBytes, gotBytes []byte) (image.Image, error) {
 		return nil, err
 	}
 
-	equals := true
-	di := image.NewGray(want.Bounds().Union(got.Bounds()))
-	for y := di.Rect.Min.Y; y < di.Rect.Max.Y; y++ {
-		for x := di.Rect.Min.X; x < di.Rect.Max.X; x++ {
+	var delta *image.Gray
+	for y := delta.Rect.Min.Y; y < delta.Rect.Max.Y; y++ {
+		for x := delta.Rect.Min.X; x < delta.Rect.Max.X; x++ {
 			if !colorEquals(want.At(x, y), got.At(x, y)) {
-				di.Set(x, y, color.White)
-				equals = false
+				if delta == nil {
+					delta = image.NewGray(want.Bounds().Union(got.Bounds()))
+				}
+				delta.Set(x, y, color.White)
 			}
 		}
 	}
-
-	if equals {
-		return nil, nil
-	} else {
-		return di, nil
-	}
+	return delta, nil
 }
 
 func colorEquals(c1, c2 color.Color) bool {
@@ -102,7 +99,7 @@ func colorEquals(c1, c2 color.Color) bool {
 	return r1 == r2 && g1 == g2 && b1 == b2 && a1 == a2
 }
 
-func capturePDF(pdfBytes []byte, bgColor color.Color) (image.Image, error) {
+func SnapshotPDF(pdfBytes []byte, bgColor color.Color) (image.Image, error) {
 	mw := imagick.NewMagickWand()
 	defer mw.Destroy()
 
