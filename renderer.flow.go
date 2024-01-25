@@ -59,8 +59,8 @@ func (r *Renderer) getFlowElements(n ast.Node) InlineElementsLines {
 }
 
 // renderInlineElements draws inline elements inside the contentBox and returns a content box with the actual drawn height.
-func (r *Renderer) renderInlineElements(lines InlineElementsLines, mc MeasureContext, contentBox Rect, align xast.Alignment) (Rect, error) {
-	result := contentBox
+func (r *Renderer) renderInlineElements(lines InlineElementsLines, mc MeasureContext, contentBox HalfBounds, align xast.Alignment) (Rect, error) {
+	result := contentBox.ToRect(contentBox.Top)
 
 	for i, line := range lines.Wrap(mc, contentBox.Width()) {
 		lineWidth, lineHeight := getLineSize(mc, line)

@@ -9,7 +9,7 @@ import (
 
 // renderBlockNode draws a block node (or document node) inside a borderBox
 // and returns a border box with the actual drawn height.
-func (r *Renderer) renderBlockNode(n ast.Node, mc MeasureContext, borderBox Rect) (Rect, error) {
+func (r *Renderer) renderBlockNode(n ast.Node, mc MeasureContext, borderBox HalfBounds) (Rect, error) {
 	if n.Type() == ast.TypeInline {
 		return Rect{}, fmt.Errorf("renderBlockNode has been called with an inline node: %v > %v", n.Parent().Kind(), n.Kind())
 	}
@@ -20,23 +20,25 @@ func (r *Renderer) renderBlockNode(n ast.Node, mc MeasureContext, borderBox Rect
 	case *xast.Table:
 		return r.renderTable(n, mc, borderBox)
 	default:
-		return r.renderGenericBlockNode(n, mc, borderBox, false)
+		return r.renderGenericBlockNode(n, mc, borderBox)
 	}
 }
 
 // renderGenericBlockNode provides basic rendering for all block nodes
 // except specific block nodes.
-func (r *Renderer) renderGenericBlockNode(n ast.Node, mc MeasureContext, borderBox Rect, fixHeight bool) (Rect, error) {
+func (r *Renderer) renderGenericBlockNode(n ast.Node, mc MeasureContext, borderBox HalfBounds, borderBoxBottom ...VerticalCoord) (Rect, error) {
 	bs := r.blockStyle(n)
 
 	err := mc.GetRenderContext(func(rc RenderContext) error {
-		b := borderBox
-		if !fixHeight {
+		var b Rect
+		if len(borderBoxBottom) == 0 {
 			var err error
-			b, err = r.renderGenericBlockNode(n, mc, borderBox, fixHeight)
+			b, err = r.renderGenericBlockNode(n, mc, borderBox)
 			if err != nil {
 				return err
 			}
+		} else {
+			b = borderBox.ToRect(borderBoxBottom[0])
 		}
 
 		rc.DrawBox(b, bs.BackgroundColor, bs.Border)
@@ -70,9 +72,9 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, mc MeasureContext, borderB
 			}
 		}
 
-		borderBox.Bottom = contentBox.Top
-		borderBox.Bottom.Position += bottom(bs.Padding) + bottom(bs.Border)
+		boxBottom := contentBox.Top
+		boxBottom.Position += bottom(bs.Padding) + bottom(bs.Border)
 
-		return borderBox, nil
+		return borderBox.ToRect(boxBottom), nil
 	}
 }

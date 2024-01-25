@@ -9,8 +9,8 @@ import (
 	xast "github.com/yuin/goldmark/extension/ast"
 )
 
-func (r *Renderer) renderListItem(n ast.Node, mc MeasureContext, borderBox Rect) (Rect, error) {
-	rect, err := r.renderGenericBlockNode(n, mc, borderBox, false)
+func (r *Renderer) renderListItem(n ast.Node, mc MeasureContext, borderBox HalfBounds) (Rect, error) {
+	rect, err := r.renderGenericBlockNode(n, mc, borderBox)
 	if err != nil {
 		return Rect{}, err
 	}
@@ -46,7 +46,7 @@ func (r *Renderer) renderListItem(n ast.Node, mc MeasureContext, borderBox Rect)
 	return rect, nil
 }
 
-func (r *Renderer) renderTable(n *xast.Table, mc MeasureContext, borderBox Rect) (Rect, error) {
+func (r *Renderer) renderTable(n *xast.Table, mc MeasureContext, borderBox HalfBounds) (Rect, error) {
 	bs := r.blockStyle(n)
 
 	err := mc.GetRenderContext(func(rc RenderContext) error {
@@ -111,13 +111,13 @@ func (r *Renderer) renderTable(n *xast.Table, mc MeasureContext, borderBox Rect)
 		}
 	}
 
-	borderBox.Bottom = contentBox.Top
-	borderBox.Bottom.Position += bottom(bs.Border) + bottom(bs.Padding)
+	boxBottom := contentBox.Top
+	boxBottom.Position += bottom(bs.Border) + bottom(bs.Padding)
 
-	return borderBox, nil
+	return borderBox.ToRect(boxBottom), nil
 }
 
-func (r *Renderer) renderTableRow(n ast.Node, mc MeasureContext, borderBox Rect, columnContentWidth []float64) (Rect, error) {
+func (r *Renderer) renderTableRow(n ast.Node, mc MeasureContext, borderBox HalfBounds, columnContentWidth []float64) (Rect, error) {
 	switch n.Kind() {
 	case xast.KindTableHeader, xast.KindTableRow:
 	default:
@@ -125,6 +125,7 @@ func (r *Renderer) renderTableRow(n ast.Node, mc MeasureContext, borderBox Rect,
 	}
 
 	bs := r.blockStyle(n)
+	var borderBoxBottom []VerticalCoord
 
 	err := mc.GetRenderContext(func(rc RenderContext) error {
 		rowRect, err := r.renderTableRow(n, mc, borderBox, columnContentWidth)
@@ -133,21 +134,23 @@ func (r *Renderer) renderTableRow(n ast.Node, mc MeasureContext, borderBox Rect,
 		}
 
 		rc.DrawBox(rowRect, bs.BackgroundColor, bs.Border)
-		borderBox.Bottom = rowRect.Bottom // ここで各テーブルセルの高さを行と一致させる
+
+		rowRect.Bottom.Position -= bottom(bs.Border) + bottom(bs.Padding)
+		borderBoxBottom = []VerticalCoord{rowRect.Bottom} // ここで各テーブルセルの高さを行と一致させる
 		return nil
 	})
 	if err != nil {
 		return Rect{}, err
 	}
 
-	contentBox := borderBox.Shrink(bs.Border, bs.Padding)
+	contentBox := borderBox.ToRect(borderBox.Top).Shrink(bs.Border, bs.Padding)
 
 	for cell := n.FirstChild(); cell != nil; cell = cell.NextSibling() {
 		bs := r.blockStyle(cell)
 		contentBox.Left += bs.Margin.Left
 		contentBox.Right = contentBox.Left + columnContentWidth[countPrevSiblings(cell)] + horizontal(bs.Border) + horizontal(bs.Padding)
 
-		cellRect, err := r.renderGenericBlockNode(cell, mc, contentBox, true)
+		cellRect, err := r.renderGenericBlockNode(cell, mc, contentBox.ToHalfBounds(), borderBoxBottom...)
 		if err != nil {
 			return Rect{}, err
 		}
@@ -158,9 +161,8 @@ func (r *Renderer) renderTableRow(n ast.Node, mc MeasureContext, borderBox Rect,
 		}
 	}
 
-	borderBox.Bottom = contentBox.Bottom
-	borderBox.Bottom.Position += bottom(bs.Border) + bottom(bs.Padding)
-	return borderBox, nil
+	contentBox.Bottom.Position += bottom(bs.Border) + bottom(bs.Padding)
+	return borderBox.ToRect(contentBox.Bottom), nil
 }
 
 func countPrevSiblings(n ast.Node) int {

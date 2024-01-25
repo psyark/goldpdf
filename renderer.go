@@ -32,12 +32,12 @@ func (r *Renderer) Render(w io.Writer, source []byte, n ast.Node) error {
 	lm, tm, rm, _ := fpdf.GetMargins()
 	pw, _ := fpdf.GetPageSize()
 
-	rect := Rect{
+	bounds := HalfBounds{
 		Left:  lm,
 		Right: pw - rm,
 		Top:   VerticalCoord{Page: 1, Position: tm},
 	}
-	if _, err := r.renderBlockNode(n, &renderContextImpl{fpdf: fpdf}, rect); err != nil {
+	if _, err := r.renderBlockNode(n, &renderContextImpl{fpdf: fpdf}, bounds); err != nil {
 		return err
 	}
 

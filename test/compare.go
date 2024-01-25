@@ -79,12 +79,14 @@ func CompareImages(wantBytes, gotBytes []byte) (image.Image, error) {
 		return nil, err
 	}
 
+	deltaRect := want.Bounds().Union(got.Bounds())
+
 	var delta *image.Gray
-	for y := delta.Rect.Min.Y; y < delta.Rect.Max.Y; y++ {
-		for x := delta.Rect.Min.X; x < delta.Rect.Max.X; x++ {
+	for y := deltaRect.Min.Y; y < deltaRect.Max.Y; y++ {
+		for x := deltaRect.Min.X; x < deltaRect.Max.X; x++ {
 			if !colorEquals(want.At(x, y), got.At(x, y)) {
 				if delta == nil {
-					delta = image.NewGray(want.Bounds().Union(got.Bounds()))
+					delta = image.NewGray(deltaRect)
 				}
 				delta.Set(x, y, color.White)
 			}
