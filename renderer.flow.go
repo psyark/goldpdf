@@ -65,7 +65,6 @@ func (r *Renderer) renderInlineElements(lines InlineElementsLines, mc MeasureCon
 	for i, line := range lines.Wrap(mc, contentBox.Width()) {
 		lineWidth, lineHeight := getLineSize(mc, line)
 
-		// TODO このフローが現在のページに収まらない場合に改ページする
 		pageTop, pageBottom := mc.GetPageVerticalBounds(contentBox.Top.Page)
 		if contentBox.Top.Position+lineHeight > pageBottom {
 			contentBox.Top.Page++

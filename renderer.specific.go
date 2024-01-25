@@ -12,7 +12,7 @@ import (
 func (r *Renderer) renderListItem(n ast.Node, mc MeasureContext, borderBox Rect) (Rect, error) {
 	rect, err := r.renderGenericBlockNode(n, mc, borderBox, false)
 	if err != nil {
-		return rect, err
+		return Rect{}, err
 	}
 
 	err = mc.GetRenderContext(func(rc RenderContext) error {

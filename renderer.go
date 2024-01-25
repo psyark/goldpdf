@@ -41,6 +41,7 @@ func (r *Renderer) Render(w io.Writer, source []byte, n ast.Node) error {
 		return err
 	}
 
+	fpdf.SetPage(fpdf.PageCount()) // Since fpdf only outputs up to the current page
 	return fpdf.Output(w)
 }
 

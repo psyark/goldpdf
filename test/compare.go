@@ -78,12 +78,8 @@ func CompareImages(wantBytes, gotBytes []byte) (image.Image, error) {
 		return nil, err
 	}
 
-	if want.Bounds() != got.Bounds() {
-		return nil, fmt.Errorf("bounds mismatch")
-	}
-
 	equals := true
-	di := image.NewGray(want.Bounds())
+	di := image.NewGray(want.Bounds().Union(got.Bounds()))
 	for y := di.Rect.Min.Y; y < di.Rect.Max.Y; y++ {
 		for x := di.Rect.Min.X; x < di.Rect.Max.X; x++ {
 			if !colorEquals(want.At(x, y), got.At(x, y)) {
@@ -137,6 +133,5 @@ func capturePDF(pdfBytes []byte, bgColor color.Color) (image.Image, error) {
 		draw.Draw(bg, image.Rect(0, img.Bounds().Dy()*i, img.Bounds().Dx(), img.Bounds().Dy()*(i+1)), img, image.Point{}, draw.Over)
 	}
 
-	fmt.Println(bg.Rect)
 	return bg, nil
 }

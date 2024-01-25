@@ -101,7 +101,6 @@ func (p *renderContextImpl) DrawBullet(page int, x, y float64, c color.Color, r 
 	}
 }
 
-// TODO 複数ページに跨る実装
 func (p *renderContextImpl) DrawBox(rect Rect, bgColor color.Color, border Border) {
 	x := rect.Left
 	w := rect.Right - rect.Left
@@ -144,10 +143,10 @@ func (p *renderContextImpl) drawBoxInPage(page int, x, y, w, h float64, bgColor 
 			}
 		}
 	case IndividualBorder:
-		p.drawEdge(x+border.Left.Width/2, y, x+border.Left.Width/2, y+h, border.Left)
-		p.drawEdge(x, y+border.Top.Width/2, x+w, y+border.Top.Width/2, border.Top)
-		p.drawEdge(x+w-border.Right.Width/2, y, x+w-border.Right.Width/2, y+h, border.Right)
-		p.drawEdge(x, y+h-border.Bottom.Width/2, x+w, y+h-border.Bottom.Width/2, border.Bottom)
+		p.drawEdge(page, x+border.Left.Width/2, y, x+border.Left.Width/2, y+h, border.Left)
+		p.drawEdge(page, x, y+border.Top.Width/2, x+w, y+border.Top.Width/2, border.Top)
+		p.drawEdge(page, x+w-border.Right.Width/2, y, x+w-border.Right.Width/2, y+h, border.Right)
+		p.drawEdge(page, x, y+h-border.Bottom.Width/2, x+w, y+h-border.Bottom.Width/2, border.Bottom)
 	}
 }
 
@@ -158,7 +157,8 @@ func (p *renderContextImpl) setPage(page int) {
 	p.fpdf.SetPage(page)
 }
 
-func (p *renderContextImpl) drawEdge(x1, y1, x2, y2 float64, edge BorderEdge) {
+func (p *renderContextImpl) drawEdge(page int, x1, y1, x2, y2 float64, edge BorderEdge) {
+	p.setPage(page)
 	if edge.Color != nil && edge.Width != 0 {
 		if _, _, _, ca := edge.Color.RGBA(); ca != 0 {
 			p.fpdf.SetLineWidth(edge.Width)
