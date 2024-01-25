@@ -24,7 +24,10 @@ func (r *Renderer) renderListItem(n ast.Node, mc MeasureContext, borderBox HalfB
 		bs2 := r.blockStyle(n2)
 		contentBox2 := contentBox.Shrink(bs2.Margin, bs2.Border, bs2.Padding)
 
-		elements := r.getFlowElements(n2)
+		elements, err := r.getFlowElements(n2)
+		if err != nil {
+			return err
+		}
 		_, h := elements[0][0].size(mc)
 
 		if list, ok := n.Parent().(*ast.List); ok && list.IsOrdered() {
@@ -66,7 +69,10 @@ func (r *Renderer) renderTable(n *xast.Table, mc MeasureContext, borderBox HalfB
 	for row := n.FirstChild(); row != nil; row = row.NextSibling() {
 		colIndex := 0
 		for col := row.FirstChild(); col != nil; col = col.NextSibling() {
-			elements := r.getFlowElements(col)
+			elements, err := r.getFlowElements(col)
+			if err != nil {
+				return Rect{}, err
+			}
 			columnContentWidth[colIndex] = math.Max(columnContentWidth[colIndex], elements.Width(mc))
 			colIndex++
 		}

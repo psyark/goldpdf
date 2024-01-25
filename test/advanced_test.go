@@ -3,6 +3,7 @@ package goldpdftest
 import (
 	"bytes"
 	_ "embed"
+	"fmt"
 	"image/color"
 	"os"
 	"testing"
@@ -78,6 +79,66 @@ func TestAdvancedPageBreak(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestAdvancedImageError(t *testing.T) {
+	table := []struct {
+		Name      string
+		ErrorMode goldpdf.DefaultImageLoaderErrorMode
+	}{
+		{Name: "IgnoreError", ErrorMode: goldpdf.IgnoreErrorAndShowAlt},
+		{Name: "ReturnError", ErrorMode: goldpdf.ReturnError},
+	}
+
+	for _, row := range table {
+		row := row
+		t.Run(row.Name, func(t *testing.T) {
+			md, err := os.ReadFile("testdata/advanced/image_error.md")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			buf := bytes.NewBuffer(nil)
+
+			markdown := goldmark.New(
+				goldmark.WithExtensions(
+					extension.Strikethrough,
+					extension.Table,
+				),
+				goldmark.WithRenderer(
+					goldpdf.New(
+						goldpdf.WithImageLoader(&goldpdf.DefaultImageLoader{ErrorMode: row.ErrorMode}),
+						goldpdf.WithStyler(&pageBreakStyler{&goldpdf.DefaultStyler{FontFamily: "Arial", FontSize: 12, Color: color.Black}}),
+					),
+				),
+			)
+
+			err = markdown.Convert(md, buf)
+			switch row.ErrorMode {
+			case goldpdf.IgnoreErrorAndShowAlt:
+				if err != nil {
+					t.Fatal(err)
+				}
+			case goldpdf.ReturnError:
+				if err == nil {
+					t.Fatal(fmt.Errorf("convert returns no error"))
+				}
+				return
+			}
+
+			err = CompareAndOutputResults(
+				buf.Bytes(),
+				"testdata/advanced/image_error.pdf",
+				"testdata/advanced/image_error.png",
+				"testdata/advanced/image_error_got.png",
+				"testdata/advanced/image_error_diff.png",
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+
 }
 
 type tableStyler struct{ *goldpdf.DefaultStyler }

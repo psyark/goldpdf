@@ -50,7 +50,11 @@ func (r *Renderer) renderGenericBlockNode(n ast.Node, mc MeasureContext, borderB
 
 	contentBox := borderBox.Shrink(bs.Border, bs.Padding)
 
-	if elements := r.getFlowElements(n); len(elements) != 0 {
+	elements, err := r.getFlowElements(n)
+	if err != nil {
+		return Rect{}, err
+	}
+	if len(elements) != 0 {
 		r, err := r.renderInlineElements(elements, mc, contentBox, bs.TextAlign)
 		if err != nil {
 			return Rect{}, err

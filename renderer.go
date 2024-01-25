@@ -78,7 +78,7 @@ func New(options ...Option) renderer.Renderer {
 	r := &Renderer{
 		pdfProvider: func() *gofpdf.Fpdf { return gofpdf.New(gofpdf.OrientationPortrait, "pt", "A4", ".") },
 		styler:      &DefaultStyler{FontFamily: "Arial", FontSize: 12, Color: color.Black},
-		imageLoader: &DefaultImageLoader{},
+		imageLoader: &DefaultImageLoader{ErrorMode: ReturnError},
 	}
 	for _, option := range options {
 		option(r)

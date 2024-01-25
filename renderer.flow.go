@@ -10,7 +10,7 @@ import (
 // getFlowElements retrieves the FlowElement belonging to the specified node.
 // Belonging means "a descendant inline node of the node and not a descendant of a child block node of the node."
 // The result is a slice of a slice of a FlowElement, where the outer slice represents a break by a HardLineBreak.
-func (r *Renderer) getFlowElements(n ast.Node) InlineElementsLines {
+func (r *Renderer) getFlowElements(n ast.Node) (InlineElementsLines, error) {
 	iels := InlineElementsLines{}
 
 	switch n := n.(type) {
@@ -35,27 +35,29 @@ func (r *Renderer) getFlowElements(n ast.Node) InlineElementsLines {
 			iels.AddLine()
 		}
 	case *ast.Image:
-		img := r.imageLoader.LoadImage(string(n.Destination))
+		img, err := r.imageLoader.LoadImage(string(n.Destination))
+		if err != nil {
+			return nil, err
+		}
 		if img != nil {
 			// If the image can be retrieved, ignore descendants (alt text).
 			iels.AppendToLastLine(img)
-			return iels
-		} else {
-			e := r.getFlowElements(n)
-			iels.AppendToLastLine(e[0]...)
-			iels = append(iels, e[1:]...)
+			return iels, nil
 		}
 	}
 
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
 		if c.Type() == ast.TypeInline {
-			e := r.getFlowElements(c)
+			e, err := r.getFlowElements(c)
+			if err != nil {
+				return nil, err
+			}
 			iels.AppendToLastLine(e[0]...)
 			iels = append(iels, e[1:]...)
 		}
 	}
 
-	return iels
+	return iels, nil
 }
 
 // renderInlineElements draws inline elements inside the contentBox and returns a content box with the actual drawn height.

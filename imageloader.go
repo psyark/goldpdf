@@ -3,6 +3,7 @@ package goldpdf
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
@@ -16,26 +17,39 @@ import (
 	"github.com/srwiley/rasterx"
 )
 
+type DefaultImageLoaderErrorMode int
+
+const (
+	ReturnError DefaultImageLoaderErrorMode = iota
+	IgnoreErrorAndShowAlt
+)
+
 var (
 	_ ImageLoader = &DefaultImageLoader{}
 )
 
 type ImageLoader interface {
-	LoadImage(string) *ImageElement // TODO error
+	LoadImage(string) (*ImageElement, error)
 }
 
 type DefaultImageLoader struct {
-	cache map[string]*ImageElement
-	// TODO 動作モード（エラートレラントでaltを表示するか、呼び出し元にエラーを返すか）
+	ErrorMode DefaultImageLoaderErrorMode
+	cache     map[string]*ImageElement
 }
 
-func (il *DefaultImageLoader) LoadImage(src string) *ImageElement {
+func (il *DefaultImageLoader) LoadImage(src string) (img *ImageElement, err error) {
+	defer func() {
+		if err != nil && il.ErrorMode == IgnoreErrorAndShowAlt {
+			err = nil
+		}
+	}()
+
 	if il.cache == nil {
 		il.cache = map[string]*ImageElement{}
 	}
 
 	if img, ok := il.cache[src]; ok {
-		return img
+		return img, nil
 	}
 
 	il.cache[src] = nil
@@ -44,39 +58,39 @@ func (il *DefaultImageLoader) LoadImage(src string) *ImageElement {
 	case strings.HasPrefix(src, "http:"), strings.HasPrefix(src, "https:"):
 		resp, err := http.Get(src)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 
 		defer resp.Body.Close()
 
 		data, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 
 		if err := il.registerBytes(src, resp.Header.Get("Content-Type"), data); err != nil {
-			return nil
+			return nil, err
 		}
 
-		return il.cache[src]
+		return il.cache[src], nil
 	case strings.HasPrefix(src, "data:"):
 		if ind := strings.Index(src, ";base64,"); ind != -1 {
 			contentType := src[5:ind]
 			ind += len(";base64,")
 			data, err := base64.StdEncoding.DecodeString(src[ind:])
 			if err != nil {
-				return nil
+				return nil, err
 			}
 
 			if err := il.registerBytes(src, contentType, data); err != nil {
-				return nil
+				return nil, err
 			}
 
-			return il.cache[src]
+			return il.cache[src], nil
 		}
-		return nil
+		return nil, fmt.Errorf("unsupported")
 	default:
-		return nil // unsupported
+		return nil, fmt.Errorf("unsupported")
 	}
 }
 
@@ -91,12 +105,12 @@ func (il *DefaultImageLoader) registerBytes(src string, mimeType string, data []
 		}
 
 		w, h := int(icon.ViewBox.W), int(icon.ViewBox.H)
-		img_ := image.NewRGBA(image.Rect(0, 0, w, h))
-		img = img_
+		drawImg := image.NewRGBA(image.Rect(0, 0, w, h))
+		img = drawImg
 
-		raster := rasterx.NewDasher(w, h, rasterx.NewScannerGV(w, h, img_, img.Bounds()))
+		raster := rasterx.NewDasher(w, h, rasterx.NewScannerGV(w, h, drawImg, img.Bounds()))
 		icon.Draw(raster, 1.0)
-		icon.DrawTexts(img_, 1.0)
+		icon.DrawTexts(drawImg, 1.0)
 
 		imgType = "png"
 		buf := bytes.NewBuffer(nil)
@@ -109,7 +123,6 @@ func (il *DefaultImageLoader) registerBytes(src string, mimeType string, data []
 		var err error
 		img, imgType, err = image.Decode(bytes.NewReader(data))
 		if err != nil {
-			// fmt.Println(src)
 			return err
 		}
 	}
