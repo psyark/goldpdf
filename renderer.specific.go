@@ -35,7 +35,7 @@ func (r *Renderer) renderListItem(n ast.Node, mc MeasureContext, borderBox HalfB
 				Format: r.textFormat(n),
 				Text:   fmt.Sprintf("%d.", countPrevSiblings(n)+1),
 			}
-			rc.DrawTextSpan(contentBox.Top.Page, contentBox2.Left-15, contentBox2.Top.Position, ts)
+			rc.DrawText(contentBox.Top.Page, contentBox2.Left-15, contentBox2.Top.Position, ts)
 		} else {
 			rc.DrawBullet(contentBox.Top.Page, contentBox2.Left-10, contentBox2.Top.Position+h/2, color.Black, 2)
 		}

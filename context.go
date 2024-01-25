@@ -11,15 +11,15 @@ var _ RenderContext = &renderContextImpl{}
 
 // MeasureContext provides a way to measure the dimensions of the drawing element.
 type MeasureContext interface {
-	GetSpanWidth(span *TextElement) float64
-	GetSubSpan(span *TextElement, width float64) *TextElement
+	GetTextWidth(span *TextElement) float64
+	GetSubText(span *TextElement, width float64) *TextElement
 	GetPageVerticalBounds(page int) (float64, float64)
 	GetRenderContext(fn func(RenderContext) error) error
 }
 
 type RenderContext interface {
 	MeasureContext
-	DrawTextSpan(page int, x, y float64, span *TextElement)
+	DrawText(page int, x, y float64, span *TextElement)
 	DrawImage(page int, x, y float64, img *ImageElement)
 	DrawBullet(page int, x, y float64, c color.Color, r float64)
 	DrawBox(rect Rect, bgColor color.Color, border Border)
@@ -30,12 +30,12 @@ type renderContextImpl struct {
 	inRendering bool
 }
 
-func (p *renderContextImpl) GetSpanWidth(span *TextElement) float64 {
+func (p *renderContextImpl) GetTextWidth(span *TextElement) float64 {
 	p.applyTextFormat(span.Format)
 	return p.fpdf.GetStringWidth(span.Text)
 }
 
-func (p *renderContextImpl) GetSubSpan(span *TextElement, width float64) *TextElement {
+func (p *renderContextImpl) GetSubText(span *TextElement, width float64) *TextElement {
 	p.applyTextFormat(span.Format)
 	width += span.Format.FontSize / 2 // SplitText issue
 
@@ -45,7 +45,7 @@ func (p *renderContextImpl) GetSubSpan(span *TextElement, width float64) *TextEl
 	}
 
 	ss := &TextElement{Text: lines[0], Format: span.Format}
-	if p.GetSpanWidth(ss) > width { // SplitText issue
+	if p.GetTextWidth(ss) > width { // SplitText issue
 		return nil
 	}
 
@@ -73,11 +73,11 @@ func (rc *renderContextImpl) GetRenderContext(fn func(RenderContext) error) erro
 	return nil
 }
 
-func (p *renderContextImpl) DrawTextSpan(page int, x, y float64, span *TextElement) {
+func (p *renderContextImpl) DrawText(page int, x, y float64, span *TextElement) {
 	p.setPage(page)
 	rect := Rect{
 		Left:   x,
-		Right:  x + p.GetSpanWidth(span),
+		Right:  x + p.GetTextWidth(span),
 		Top:    VerticalCoord{Page: page, Position: y},
 		Bottom: VerticalCoord{Page: page, Position: y + span.Format.FontSize},
 	}

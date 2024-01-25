@@ -24,11 +24,11 @@ type TextElement struct {
 }
 
 func (s *TextElement) size(mc MeasureContext) (float64, float64) {
-	return mc.GetSpanWidth(s), s.Format.FontSize
+	return mc.GetTextWidth(s), s.Format.FontSize
 }
 
 func (t *TextElement) drawTo(rc RenderContext, page int, x, y float64) {
-	rc.DrawTextSpan(page, x, y, t)
+	rc.DrawText(page, x, y, t)
 }
 
 // ImageElement は、単一の画像です
@@ -97,13 +97,13 @@ func wrapLine(mc MeasureContext, limitWidth float64, line []InlineElement) Inlin
 	for len(rest) != 0 {
 		switch e := rest[0].(type) {
 		case *TextElement:
-			if ss := mc.GetSubSpan(e, limitWidth-width); ss == nil {
+			if ss := mc.GetSubText(e, limitWidth-width); ss == nil {
 				result.AddLine()
 				width = 0
 				continue // この行にこれ以上入らない
 			} else {
 				result.AppendToLastLine(ss)
-				width += mc.GetSpanWidth(ss)
+				width += mc.GetTextWidth(ss)
 				if ss.Text == e.Text {
 					rest = rest[1:]
 				} else {
