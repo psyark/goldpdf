@@ -99,6 +99,9 @@ func wrapLine(mc MeasureContext, limitWidth float64, line []InlineElement) Inlin
 		case *TextElement:
 			if ss := mc.GetSubText(e, limitWidth-width); ss == nil {
 				result.AddLine()
+				if width == 0 { // width == 0 なのにこれ以上入らないなら終了して無限ループを回避
+					return result
+				}
 				width = 0
 				continue // この行にこれ以上入らない
 			} else {
