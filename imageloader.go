@@ -127,12 +127,12 @@ func (il *DefaultImageLoader) registerBytes(src string, mimeType string, data []
 		}
 	}
 
-	name := strconv.Itoa(len(il.cache))
 	il.cache[src] = &ImageElement{
-		name:      name,
-		imageType: imgType,
-		img:       img,
-		data:      data,
+		Name:      strconv.Itoa(len(il.cache)),
+		ImageType: imgType,
+		Width:     float64(img.Bounds().Dx()),
+		Height:    float64(img.Bounds().Dy()),
+		Bytes:     data,
 	}
 	return nil
 }

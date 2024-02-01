@@ -88,9 +88,10 @@ func (p *renderContextImpl) DrawText(page int, x, y float64, span *TextElement) 
 
 func (p *renderContextImpl) DrawImage(page int, x, y float64, img *ImageElement) {
 	p.setPage(page)
-	p.fpdf.RegisterImageOptionsReader(img.name, gofpdf.ImageOptions{ImageType: img.imageType}, bytes.NewReader(img.data))
 	w, h := img.size(p)
-	p.fpdf.ImageOptions(img.name, x, y, w, h, false, gofpdf.ImageOptions{}, 0, "")
+	opt := gofpdf.ImageOptions{ImageType: img.ImageType, ReadDpi: true, AllowNegativePosition: true}
+	p.fpdf.RegisterImageOptionsReader(img.Name, opt, bytes.NewReader(img.Bytes))
+	p.fpdf.ImageOptions(img.Name, x, y, w, h, false, opt, 0, "")
 }
 
 func (p *renderContextImpl) DrawBullet(page int, x, y float64, c color.Color, r float64) {

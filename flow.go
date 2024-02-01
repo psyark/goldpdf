@@ -1,7 +1,6 @@
 package goldpdf
 
 import (
-	"image"
 	"math"
 	"strings"
 )
@@ -33,14 +32,14 @@ func (t *TextElement) drawTo(rc RenderContext, page int, x, y float64) {
 
 // ImageElement は、単一の画像です
 type ImageElement struct {
-	name      string
-	imageType string
-	img       image.Image
-	data      []byte
+	Name          string
+	ImageType     string // see ImageType of fpdf.ImageOptions
+	Width, Height float64
+	Bytes         []byte
 }
 
 func (i *ImageElement) size(MeasureContext) (float64, float64) {
-	return float64(i.img.Bounds().Dx()), float64(i.img.Bounds().Dy())
+	return i.Width, i.Height
 }
 
 func (i *ImageElement) drawTo(rc RenderContext, page int, x float64, y float64) {
