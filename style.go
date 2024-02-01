@@ -36,9 +36,10 @@ type Styler interface {
 var _ Styler = &DefaultStyler{}
 
 type DefaultStyler struct {
-	FontFamily string
-	FontSize   float64
-	Color      color.Color
+	FontFamily  string
+	FontSize    float64
+	Color       color.Color
+	TableLayout TableLayout
 }
 
 func (s *DefaultStyler) Style(n ast.Node, tf TextFormat) (BlockStyle, TextFormat) {
@@ -90,6 +91,7 @@ func (s *DefaultStyler) Style(n ast.Node, tf TextFormat) (BlockStyle, TextFormat
 	case *xast.Strikethrough:
 		tf.Strike = true
 	case *xast.Table:
+		bs.TableLayout = s.TableLayout
 		bs.Margin = Spacing{Top: 10, Bottom: 10}
 	case *xast.TableHeader:
 		tf.Bold = true
