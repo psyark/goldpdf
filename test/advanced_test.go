@@ -197,3 +197,68 @@ func TestAdvancedStyledTable(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+type tableLayoutStyler struct{ *goldpdf.DefaultStyler }
+
+func (s *tableLayoutStyler) Style(n ast.Node, tf goldpdf.TextFormat) (goldpdf.BlockStyle, goldpdf.TextFormat) {
+	bs, tf := s.DefaultStyler.Style(n, tf)
+	switch n.(type) {
+	case *xast.Table:
+		switch s.countPrevSiblings(n) {
+		case 0:
+			tf.Color = color.RGBA{R: 0x99, A: 0xFF}
+			bs.TableLayout = goldpdf.TableLayoutEvenly
+		case 1:
+			tf.Color = color.RGBA{G: 0x99, A: 0xFF}
+			bs.TableLayout = goldpdf.TableLayoutAutoFilled
+		case 2:
+			tf.Color = color.RGBA{B: 0x99, A: 0xFF}
+			bs.TableLayout = goldpdf.TableLayoutAutoCompact
+		}
+	}
+	return bs, tf
+}
+
+func (*tableLayoutStyler) countPrevSiblings(n ast.Node) int {
+	c := 0
+	for x := n.PreviousSibling(); x != nil; x = x.PreviousSibling() {
+		c++
+	}
+	return c
+}
+
+func TestAdvancedTableLayout(t *testing.T) {
+	md, err := os.ReadFile("testdata/advanced/table_layout.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	buf := bytes.NewBuffer(nil)
+
+	markdown := goldmark.New(
+		goldmark.WithExtensions(
+			extension.Strikethrough,
+			extension.Table,
+		),
+		goldmark.WithRenderer(
+			goldpdf.New(
+				goldpdf.WithStyler(&tableLayoutStyler{&goldpdf.DefaultStyler{FontFamily: "Arial", FontSize: 12, Color: color.Black}}),
+			),
+		),
+	)
+
+	if err := markdown.Convert(md, buf); err != nil {
+		t.Fatal(err)
+	}
+
+	err = CompareAndOutputResults(
+		buf.Bytes(),
+		"testdata/advanced/table_layout.pdf",
+		"testdata/advanced/table_layout.png",
+		"testdata/advanced/table_layout_got.png",
+		"testdata/advanced/table_layout_diff.png",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+}

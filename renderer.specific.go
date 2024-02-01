@@ -3,7 +3,6 @@ package goldpdf
 import (
 	"fmt"
 	"image/color"
-	"math"
 
 	"github.com/yuin/goldmark/ast"
 	xast "github.com/yuin/goldmark/extension/ast"
@@ -64,46 +63,17 @@ func (r *Renderer) renderTable(n *xast.Table, mc MeasureContext, borderBox HalfB
 		return Rect{}, err
 	}
 
-	columnContentWidth := make([]float64, len(n.Alignments))
+	tableLayout := TableLayoutAutoCompact
+	if bs.TableLayout != nil {
+		tableLayout = bs.TableLayout
+	}
 
-	for row := n.FirstChild(); row != nil; row = row.NextSibling() {
-		colIndex := 0
-		for col := row.FirstChild(); col != nil; col = col.NextSibling() {
-			elements, err := r.getFlowElements(col)
-			if err != nil {
-				return Rect{}, err
-			}
-			columnContentWidth[colIndex] = math.Max(columnContentWidth[colIndex], elements.Width(mc))
-			colIndex++
-		}
+	columnContentWidth, err := tableLayout(r, n, mc, borderBox)
+	if err != nil {
+		return Rect{}, err
 	}
 
 	contentBox := borderBox.Shrink(bs.Border, bs.Padding)
-
-	totalWidth := 0.0
-	availableWidth := contentBox.Right - contentBox.Left
-	if row := n.FirstChild(); row != nil {
-		// TableHeaderの水平成分を減らす
-		bs := r.blockStyle(row)
-		availableWidth -= horizontal(bs.Margin) + horizontal(bs.Border) + horizontal(bs.Padding)
-		if col := row.FirstChild(); col != nil {
-			// TableCellの水平成分を減らす
-			bs := r.blockStyle(col)
-			availableWidth -= (horizontal(bs.Margin) + horizontal(bs.Border) + horizontal(bs.Padding)) * float64(len(n.Alignments))
-		}
-	}
-
-	for _, ccw := range columnContentWidth {
-		totalWidth += ccw
-	}
-	// 列の最大幅がavailableWidthを超過するなら
-	if totalWidth > availableWidth {
-		// 列の最大幅を均等倍率で縮小する
-		for i := range columnContentWidth {
-			columnContentWidth[i] *= availableWidth / totalWidth
-		}
-	}
-
 	for row := n.FirstChild(); row != nil; row = row.NextSibling() {
 		switch row := row.(type) {
 		case *xast.TableHeader, *xast.TableRow:

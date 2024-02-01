@@ -8,14 +8,6 @@ import (
 	xast "github.com/yuin/goldmark/extension/ast"
 )
 
-type TableLayout string
-
-const (
-	TableLayoutEvenly      TableLayout = "evenly"
-	TableLayoutAutoFilled  TableLayout = "auto-filled"
-	TableLayoutAutoCompact TableLayout = "auto-compact"
-)
-
 type BlockStyle struct {
 	Margin          Spacing
 	Padding         Spacing
