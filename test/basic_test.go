@@ -38,6 +38,31 @@ func TestMain(m *testing.M) {
 }
 
 func TestBasic(t *testing.T) {
+	fontFamily := "NotoSans"
+	markdown := goldmark.New(
+		goldmark.WithExtensions(
+			extension.Strikethrough,
+			extension.Table,
+		),
+		goldmark.WithRenderer(
+			goldpdf.New(
+				goldpdf.WithStyler(&goldpdf.DefaultStyler{
+					FontFamily: fontFamily,
+					FontSize:   12,
+					Color:      color.Black,
+				}),
+				goldpdf.WithPDFProvider(func() *gofpdf.Fpdf {
+					f := gofpdf.New("P", "pt", "A4", "")
+					f.AddUTF8FontFromBytes(fontFamily, "", NotoSansRegular)
+					f.AddUTF8FontFromBytes(fontFamily, "B", NotoSansBold)
+					f.AddUTF8FontFromBytes(fontFamily, "I", NotoSansRegularItalic)
+					f.AddUTF8FontFromBytes(fontFamily, "BI", NotoSansBoldItalic)
+					return f
+				}),
+			),
+		),
+	)
+
 	entries, err := os.ReadDir("testdata/basic")
 	if err != nil {
 		t.Fatal(err)
@@ -56,33 +81,6 @@ func TestBasic(t *testing.T) {
 				}
 
 				buf := bytes.NewBuffer(nil)
-
-				fontFamily := "NotoSans"
-				options := []goldpdf.Option{
-					goldpdf.WithStyler(&goldpdf.DefaultStyler{
-						FontFamily: fontFamily,
-						FontSize:   12,
-						Color:      color.Black,
-					}),
-					goldpdf.WithPDFProvider(func() *gofpdf.Fpdf {
-						f := gofpdf.New("P", "pt", "A4", "")
-						f.AddUTF8FontFromBytes(fontFamily, "", NotoSansRegular)
-						f.AddUTF8FontFromBytes(fontFamily, "B", NotoSansBold)
-						f.AddUTF8FontFromBytes(fontFamily, "I", NotoSansRegularItalic)
-						f.AddUTF8FontFromBytes(fontFamily, "BI", NotoSansBoldItalic)
-						return f
-					}),
-				}
-				markdown := goldmark.New(
-					goldmark.WithExtensions(
-						extension.Strikethrough,
-						extension.Table,
-					),
-					goldmark.WithRenderer(
-						goldpdf.New(options...),
-					),
-				)
-
 				if err := markdown.Convert(md, buf); err != nil {
 					t.Fatal(err)
 				}
@@ -102,6 +100,31 @@ func TestBasic(t *testing.T) {
 }
 
 func TestBasicJa(t *testing.T) {
+	fontFamily := "Ipaexg"
+	markdown := goldmark.New(
+		goldmark.WithExtensions(
+			extension.Strikethrough,
+			extension.Table,
+		),
+		goldmark.WithRenderer(
+			goldpdf.New(
+				goldpdf.WithStyler(&goldpdf.DefaultStyler{
+					FontFamily: fontFamily,
+					FontSize:   12,
+					Color:      color.Black,
+				}),
+				goldpdf.WithPDFProvider(func() *gofpdf.Fpdf {
+					f := gofpdf.New("P", "pt", "A4", "")
+					f.AddUTF8FontFromBytes(fontFamily, "", IpaexgBytes)
+					f.AddUTF8FontFromBytes(fontFamily, "B", IpaexgBytes)
+					f.AddUTF8FontFromBytes(fontFamily, "I", IpaexgBytes)
+					f.AddUTF8FontFromBytes(fontFamily, "BI", IpaexgBytes)
+					return f
+				}),
+			),
+		),
+	)
+
 	entries, err := os.ReadDir("testdata/ja")
 	if err != nil {
 		t.Fatal(err)
@@ -120,33 +143,6 @@ func TestBasicJa(t *testing.T) {
 				}
 
 				buf := bytes.NewBuffer(nil)
-
-				fontFamily := "Ipaexg"
-				options := []goldpdf.Option{
-					goldpdf.WithStyler(&goldpdf.DefaultStyler{
-						FontFamily: fontFamily,
-						FontSize:   12,
-						Color:      color.Black,
-					}),
-					goldpdf.WithPDFProvider(func() *gofpdf.Fpdf {
-						f := gofpdf.New("P", "pt", "A4", "")
-						f.AddUTF8FontFromBytes(fontFamily, "", IpaexgBytes)
-						f.AddUTF8FontFromBytes(fontFamily, "B", IpaexgBytes)
-						f.AddUTF8FontFromBytes(fontFamily, "I", IpaexgBytes)
-						f.AddUTF8FontFromBytes(fontFamily, "BI", IpaexgBytes)
-						return f
-					}),
-				}
-				markdown := goldmark.New(
-					goldmark.WithExtensions(
-						extension.Strikethrough,
-						extension.Table,
-					),
-					goldmark.WithRenderer(
-						goldpdf.New(options...),
-					),
-				)
-
 				if err := markdown.Convert(md, buf); err != nil {
 					t.Fatal(err)
 				}
