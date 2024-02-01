@@ -44,6 +44,16 @@ func (r *Renderer) getFlowElements(n ast.Node) (InlineElementsLines, error) {
 			iels.AppendToLastLine(img)
 			return iels, nil
 		}
+	case *ast.RawHTML:
+		html := ""
+		for i := 0; i < n.Segments.Len(); i++ {
+			seg := n.Segments.At(i)
+			html += string(seg.Value(r.source))
+		}
+		if html == "<br>" {
+			iels.AddLine()
+			iels.AddLine()
+		}
 	}
 
 	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
@@ -52,8 +62,10 @@ func (r *Renderer) getFlowElements(n ast.Node) (InlineElementsLines, error) {
 			if err != nil {
 				return nil, err
 			}
-			iels.AppendToLastLine(e[0]...)
-			iels = append(iels, e[1:]...)
+			if len(e) != 0 {
+				iels.AppendToLastLine(e[0]...)
+				iels = append(iels, e[1:]...)
+			}
 		}
 	}
 
