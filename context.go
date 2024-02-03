@@ -40,7 +40,7 @@ func (p *renderContextImpl) GetSubText(span *TextElement, width float64) *TextEl
 	width += span.Format.FontSize / 2 // SplitText issue
 
 	lines := p.fpdf.SplitText(span.Text, width)
-	if lines[0] == "" {
+	if len(lines) == 0 || lines[0] == "" {
 		return nil
 	}
 
