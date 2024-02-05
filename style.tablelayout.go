@@ -47,7 +47,7 @@ func tableLayoutAuto(r *Renderer, n *xast.Table, mc MeasureContext, borderBox Ha
 			if err != nil {
 				return nil, err
 			}
-			columnContentWidth[colIndex] = math.Max(columnContentWidth[colIndex], elements.Width(mc))
+			columnContentWidth[colIndex] = math.Max(columnContentWidth[colIndex], GetNaturalWidth(mc, elements))
 			colIndex++
 		}
 	}

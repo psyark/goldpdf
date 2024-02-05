@@ -9,9 +9,8 @@ import (
 
 // getFlowElements retrieves the FlowElement belonging to the specified node.
 // Belonging means "a descendant inline node of the node and not a descendant of a child block node of the node."
-// The result is a slice of a slice of a FlowElement, where the outer slice represents a break by a HardLineBreak.
-func (r *Renderer) getFlowElements(n ast.Node) (InlineElementsLines, error) {
-	iels := InlineElementsLines{}
+func (r *Renderer) getFlowElements(n ast.Node) ([]InlineElement, error) {
+	elements := []InlineElement{}
 
 	switch n := n.(type) {
 	case *ast.CodeBlock, *ast.FencedCodeBlock:
@@ -19,20 +18,24 @@ func (r *Renderer) getFlowElements(n ast.Node) (InlineElementsLines, error) {
 		lines := n.Lines()
 		for i := 0; i < lines.Len(); i++ {
 			line := lines.At(i)
-			ts := &TextElement{Text: strings.TrimRight(string(line.Value(r.source)), "\n"), Format: tf}
-			iels.AppendToLastLine(ts)
-			iels.AddLine()
+			str := string(line.Value(r.source))
+
+			text := &TextElement{Text: strings.TrimSuffix(str, "\n"), Format: tf}
+			elements = append(elements, text)
+			if strings.HasSuffix(str, "\n") {
+				elements = append(elements, &LineBreakElement{Format: tf})
+			}
 		}
 	case *ast.AutoLink:
 		tf := r.textFormat(n)
-		ts := &TextElement{Format: tf, Text: string(n.URL(r.source))}
-		iels.AppendToLastLine(ts)
+		text := &TextElement{Format: tf, Text: string(n.URL(r.source))}
+		elements = append(elements, text)
 	case *ast.Text:
 		tf := r.textFormat(n)
-		ts := &TextElement{Format: tf, Text: string(n.Text(r.source))}
-		iels.AppendToLastLine(ts)
+		text := &TextElement{Format: tf, Text: string(n.Text(r.source))}
+		elements = append(elements, text)
 		if n.HardLineBreak() {
-			iels.AddLine()
+			elements = append(elements, &LineBreakElement{Format: tf})
 		}
 	case *ast.Image:
 		img, err := r.imageLoader.LoadImage(string(n.Destination))
@@ -41,8 +44,8 @@ func (r *Renderer) getFlowElements(n ast.Node) (InlineElementsLines, error) {
 		}
 		if img != nil {
 			// If the image can be retrieved, ignore descendants (alt text).
-			iels.AppendToLastLine(img)
-			return iels, nil
+			elements = append(elements, img)
+			return elements, nil
 		}
 	case *ast.RawHTML:
 		html := ""
@@ -51,8 +54,8 @@ func (r *Renderer) getFlowElements(n ast.Node) (InlineElementsLines, error) {
 			html += string(seg.Value(r.source))
 		}
 		if html == "<br>" {
-			iels.AddLine()
-			iels.AddLine()
+			tf := r.textFormat(n)
+			elements = append(elements, &LineBreakElement{Format: tf})
 		}
 	}
 
@@ -62,21 +65,18 @@ func (r *Renderer) getFlowElements(n ast.Node) (InlineElementsLines, error) {
 			if err != nil {
 				return nil, err
 			}
-			if len(e) != 0 {
-				iels.AppendToLastLine(e[0]...)
-				iels = append(iels, e[1:]...)
-			}
+			elements = append(elements, e...)
 		}
 	}
 
-	return iels, nil
+	return elements, nil
 }
 
 // renderInlineElements draws inline elements inside the contentBox and returns a content box with the actual drawn height.
-func (r *Renderer) renderInlineElements(lines InlineElementsLines, mc MeasureContext, contentBox HalfBounds, align xast.Alignment) (Rect, error) {
+func (r *Renderer) renderInlineElements(elements []InlineElement, mc MeasureContext, contentBox HalfBounds, align xast.Alignment) (Rect, error) {
 	result := contentBox.ToRect(contentBox.Top)
 
-	for i, line := range lines.Wrap(mc, contentBox.Width()) {
+	for i, line := range wrapElements(mc, contentBox.Width(), elements) {
 		lineWidth, lineHeight := getLineSize(mc, line)
 
 		pageTop, pageBottom := mc.GetPageVerticalBounds(contentBox.Top.Page)

@@ -27,7 +27,7 @@ func (r *Renderer) renderListItem(n ast.Node, mc MeasureContext, borderBox HalfB
 		if err != nil {
 			return err
 		}
-		_, h := elements[0][0].size(mc)
+		_, h := elements[0].size(mc)
 
 		if list, ok := n.Parent().(*ast.List); ok && list.IsOrdered() {
 			ts := &TextElement{

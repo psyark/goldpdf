@@ -262,3 +262,54 @@ func TestAdvancedTableLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+type wrapStyler struct {
+	*goldpdf.DefaultStyler
+}
+
+func (s *wrapStyler) Style(n ast.Node, tf goldpdf.TextFormat) (goldpdf.BlockStyle, goldpdf.TextFormat) {
+	bs, tf := s.DefaultStyler.Style(n, tf)
+	switch n.(type) {
+	case *ast.Blockquote:
+		bs.Margin = goldpdf.Spacing{Left: 45, Right: 45}
+		bs.Padding = goldpdf.Spacing{Left: 5, Top: 5, Right: 5, Bottom: 5}
+		bs.Border = goldpdf.UniformBorder{Width: 0.5, Color: color.Black, Radius: 10}
+	}
+	return bs, tf
+}
+
+func TestWrap(t *testing.T) {
+	md, err := os.ReadFile("testdata/advanced/wrap.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	buf := bytes.NewBuffer(nil)
+
+	markdown := goldmark.New(
+		goldmark.WithExtensions(
+			extension.Strikethrough,
+			extension.Table,
+		),
+		goldmark.WithRenderer(
+			goldpdf.New(
+				goldpdf.WithStyler(&wrapStyler{&goldpdf.DefaultStyler{FontFamily: "Arial", FontSize: 12, Color: color.Black}}),
+			),
+		),
+	)
+
+	if err := markdown.Convert(md, buf); err != nil {
+		t.Fatal(err)
+	}
+
+	err = CompareAndOutputResults(
+		buf.Bytes(),
+		"testdata/advanced/wrap.pdf",
+		"testdata/advanced/wrap.png",
+		"testdata/advanced/wrap_got.png",
+		"testdata/advanced/wrap_diff.png",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
