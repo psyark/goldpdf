@@ -101,6 +101,8 @@ func wrapElements(mc MeasureContext, limitWidth float64, elements []InlineElemen
 				// この行にこれ以上入らない
 				lineWidth = 0
 				result = append(result, []InlineElement{})
+				// Remove spaces immediately after line breaks
+				e.Text = strings.TrimPrefix(e.Text, " ")
 			} else {
 				result[len(result)-1] = append(result[len(result)-1], ss)
 				lineWidth += mc.GetTextWidth(ss)
